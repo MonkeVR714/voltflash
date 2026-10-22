@@ -8,6 +8,7 @@ const DEFAULT_SETTINGS = {
   githubToken: '',
   catalogUrl: '',
   eraseBeforeFlash: false,
+  backupBeforeFlash: true,
   ideBoard: 'esp32:esp32:esp32',
   serialBaud: 115200,
   browserHome: 'https://github.com/topics/esp32',
@@ -39,9 +40,10 @@ function init(root) {
   paths.cache = path.join(root, 'vf-cache');
   paths.arduino = path.join(root, 'arduino');
   paths.sketches = path.join(root, 'sketches');
+  paths.backups = path.join(root, 'backups');
   paths.settings = path.join(root, 'settings.json');
   paths.projects = path.join(root, 'projects.json');
-  for (const key of ['tools', 'downloads', 'cache', 'arduino', 'sketches']) {
+  for (const key of ['tools', 'downloads', 'cache', 'arduino', 'sketches', 'backups']) {
     fs.mkdirSync(paths[key], { recursive: true });
   }
   settings = { ...DEFAULT_SETTINGS, ...readJson(paths.settings, {}) };

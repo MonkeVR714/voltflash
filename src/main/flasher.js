@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const tools = require('./tools');
+const store = require('./store');
 const { run } = require('./proc');
 
 const CHIP_IDS = {
@@ -58,6 +59,20 @@ function analyze(file) {
 
   if (ext === '.hex') {
     return { ...base, kind: 'avr-hex', target: 'avr', offset: null, summary: 'Intel HEX for AVR boards (Arduino Uno, Nano, Mega)' };
+  }
+
+  // VoltFlash backups carry a .json describing the board they came from.
+  const backupMeta = store.readJson(file.replace(/\.bin$/i, '.json'), null);
+  if (backupMeta && backupMeta.mac !== undefined && backupMeta.created) {
+    return {
+      ...base,
+      kind: 'backup',
+      target: 'esp',
+      offset: 0,
+      chip: backupMeta.family || null,
+      flashSize: backupMeta.flashSize,
+      summary: `Full flash backup from ${backupMeta.chip || 'an ESP board'}${backupMeta.mac ? ' (' + backupMeta.mac + ')' : ''}. Restores at 0x0.`,
+    };
   }
 
   const fd = fs.openSync(file, 'r');
@@ -228,6 +243,67 @@ async function erase(port, onLog) {
   return true;
 }
 
+// ---------- backups ----------
+// A backup is the whole flash chip read back into a .bin, plus a .json next
+// to it describing the board. Being a full image, it restores at 0x0.
+
+function stampNow() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}`;
+}
+
+async function backup({ port, baud = 921600, label = '' }, onLog) {
+  if (!port) throw new Error('Pick a COM port first.');
+  onLog({ type: 'info', text: 'Backing up the firmware that is on the board now...', stage: 'Reading board' });
+  const info = await detect(port, onLog);
+  const { exe, c } = await esptool(toolProgress(onLog));
+  const family = (info.chip.match(/ESP32(-[A-Z0-9]+)?/i) || ['ESP'])[0].toUpperCase();
+  const mac = (info.mac || 'unknown').replace(/:/g, '');
+  const file = path.join(store.paths.backups, `${family}_${mac}_${stampNow()}.bin`);
+  onLog({ type: 'info', text: `Reading ${info.flashSize || 'all'} of flash into ${path.basename(file)}`, stage: 'Backing up' });
+  try {
+    await runJob(exe, ['--chip', 'auto', '--port', port, '--baud', String(baud), c('read_flash'), '0', 'ALL', file], (p) =>
+      onLog({ ...p, stage: p.stage === 'Connected' || p.stage === 'Connecting' ? p.stage : 'Backing up' }));
+  } catch (err) {
+    fs.rmSync(file, { force: true });
+    throw new Error('Backup failed: ' + err.message);
+  }
+  const meta = {
+    file,
+    name: path.basename(file),
+    chip: info.chip,
+    family,
+    mac: info.mac,
+    flashSize: info.flashSize,
+    size: fs.statSync(file).size,
+    port,
+    label,
+    created: Date.now(),
+  };
+  store.writeJson(file.replace(/\.bin$/i, '.json'), meta);
+  onLog({ type: 'done', text: `Backup saved: ${meta.name}`, pct: 100, stage: 'Backed up' });
+  return meta;
+}
+
+function listBackups() {
+  return fs.readdirSync(store.paths.backups)
+    .filter((f) => f.toLowerCase().endsWith('.bin'))
+    .map((f) => {
+      const file = path.join(store.paths.backups, f);
+      const stat = fs.statSync(file);
+      const meta = store.readJson(file.replace(/\.bin$/i, '.json'), {});
+      return { name: f, chip: '', family: '', mac: '', label: '', ...meta, file, size: stat.size, created: meta.created || stat.mtimeMs };
+    })
+    .sort((a, b) => b.created - a.created);
+}
+
+function updateBackup(file, patch) {
+  const metaFile = file.replace(/\.bin$/i, '.json');
+  store.writeJson(metaFile, { ...store.readJson(metaFile, {}), ...patch });
+  return listBackups();
+}
+
 function cancel() {
   if (current) {
     try {
@@ -236,4 +312,4 @@ function cancel() {
   }
 }
 
-module.exports = { analyze, flash, detect, erase, cancel, CHIP_IDS };
+module.exports = { analyze, flash, detect, erase, backup, listBackups, updateBackup, cancel, CHIP_IDS };

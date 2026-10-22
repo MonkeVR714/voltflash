@@ -176,6 +176,19 @@ function registerIpc() {
   handle('flash:detect', (port) => flasher.detect(port, progress('flash:log')));
   handle('flash:erase', (port) => flasher.erase(port, progress('flash:log')));
 
+  // backups of the firmware that was on a board before flashing
+  handle('backups:create', (opts) => flasher.backup(opts, progress('flash:log')));
+  handle('backups:list', () => flasher.listBackups());
+  handle('backups:update', (file, patch) => flasher.updateBackup(file, patch));
+  handle('backups:trash', async (file) => {
+    if (path.dirname(file) !== store.paths.backups) throw new Error('Not a backup file');
+    await shell.trashItem(file);
+    const meta = file.replace(/\.bin$/i, '.json');
+    if (fs.existsSync(meta)) await shell.trashItem(meta);
+    return flasher.listBackups();
+  });
+  handle('backups:folder', () => store.paths.backups);
+
   // my projects (firmware entries the user adds)
   handle('projects:list', () => store.getProjects());
   handle('projects:save', (p) => store.saveProject(p));

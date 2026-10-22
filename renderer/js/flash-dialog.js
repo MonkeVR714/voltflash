@@ -48,6 +48,8 @@
       offset: null,
       baud: state.settings.baud || 921600,
       erase: !!state.settings.eraseBeforeFlash,
+      backup: state.settings.backupBeforeFlash !== false,
+      lastBackup: null,
       fqbn: (entry && entry.fqbn) || 'arduino:avr:uno',
       filter: '',
       busy: false,
@@ -127,7 +129,7 @@
       const det = state.detected[state.port];
       const fam = chipFamily(det && det.chip);
       const mismatch = !isHex && a.chip && fam && a.chip !== fam;
-      const kindLabel = { merged: 'Full image', app: 'App only', 'esp-image': 'ESP image', raw: 'Unknown', 'avr-hex': 'AVR HEX' }[a.kind];
+      const kindLabel = { backup: 'Backup', merged: 'Full image', app: 'App only', 'esp-image': 'ESP image', raw: 'Unknown', 'avr-hex': 'AVR HEX' }[a.kind];
 
       const offsetInput = h('input.input.mono', { value: hex(s.offset), style: { width: '100%' }, spellcheck: false });
       offsetInput.addEventListener('change', () => {
@@ -166,7 +168,9 @@
           !isHex ? h('label.field', h('span', ' '), h('button.btn', { onclick: detectBoard, title: 'Ask the board what chip it is' }, icon('chip'), 'Detect')) : null),
         det && !isHex ? h('div.dim', { style: { fontSize: '12.5px', marginTop: '8px' } },
           `Detected: ${det.chip}${det.flashSize ? ' · ' + det.flashSize + ' flash' : ''}${det.mac ? ' · ' + det.mac : ''}`) : null,
-        !isHex ? h('div', { style: { marginTop: '10px' } },
+        !isHex ? h('div', { style: { marginTop: '10px', display: 'grid', gap: '8px' } },
+          h('label.check', h('input', { type: 'checkbox', checked: s.backup, onchange: (e) => { s.backup = e.target.checked; } }),
+            'Back up the firmware on the board first (so you can restore it later from Backups)'),
           h('label.check', h('input', { type: 'checkbox', checked: s.erase, onchange: (e) => { s.erase = e.target.checked; } }),
             'Erase the whole flash first (wipes saved settings, fixes most boot loops)')) : null);
     }
@@ -274,7 +278,7 @@
       let lastWasProgress = false;
       const off = window.vf.flash.onLog((p) => {
         if (p.stage) stageEl.textContent = p.stage;
-        if (p.pct !== undefined && (p.stage === 'Writing' || p.type === 'tool' || p.type === 'done')) {
+        if (p.pct !== undefined && (p.stage === 'Writing' || p.stage === 'Backing up' || p.type === 'tool' || p.type === 'done')) {
           prog.classList.remove('indeterminate');
           bar.style.width = p.pct + '%';
           pctEl.textContent = Math.round(p.pct) + '%';
@@ -291,6 +295,17 @@
       });
 
       try {
+        s.lastBackup = null;
+        if (!isHex && s.backup) {
+          s.lastBackup = await call(window.vf.backups.create({
+            port,
+            baud: s.baud,
+            label: `Before flashing ${entry ? entry.name : s.analysis.name}`,
+          }));
+          prog.classList.add('indeterminate');
+          bar.style.width = '0%';
+          pctEl.textContent = '';
+        }
         await call(window.vf.flash.start({
           port,
           baud: s.baud,
@@ -319,7 +334,12 @@
       const result = ok
         ? h('div.result', h('div.big.ok', icon('check')), h('h3', 'Flashed successfully'), h('p.muted', { style: { margin: 0 } }, `${entry ? entry.name : 'Your firmware'} is now running on ${state.port}.`))
         : h('div.result', h('div.big.fail', icon('x')), h('h3', message === 'Cancelled' ? 'Flashing cancelled' : 'Flashing failed'), h('p.muted', { style: { margin: '0 auto', maxWidth: '560px' } }, message));
-      m.setBody(result, h('details', h('summary.dim', { style: { cursor: 'pointer', marginBottom: '8px' } }, 'Log'), log));
+      const backupNote = s.lastBackup
+        ? h('div.notice.info', { style: { margin: 0 } }, icon('save'),
+          h('div.grow', `The old firmware was saved as ${s.lastBackup.name} (${VF.fmtBytes(s.lastBackup.size)}).`),
+          h('button.btn.btn-sm', { onclick: () => { m.close(); VF.go('backups'); } }, 'View backups'))
+        : null;
+      m.setBody(result, backupNote, h('details', h('summary.dim', { style: { cursor: 'pointer', marginBottom: '8px' } }, 'Log'), log));
       if (!ok) m.body.querySelector('details').open = true;
       m.setFoot(
         ok ? h('button.btn', { onclick: () => { m.close(); VF.go('serial'); } }, icon('terminal'), 'Open Serial Monitor') : null,

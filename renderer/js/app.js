@@ -17,6 +17,7 @@
     { id: 'browser', name: 'Browser', icon: 'globe' },
     { id: 'ide', name: 'Arduino IDE', icon: 'code' },
     { id: 'serial', name: 'Serial Monitor', icon: 'terminal' },
+    { id: 'backups', name: 'Backups', icon: 'save' },
   ];
 
   function renderSidebar() {

@@ -77,9 +77,11 @@
             h('select.select', { onchange: (e) => VF.saveSettings({ baud: Number(e.target.value) }) },
               BAUDS.map((b) => h('option', { value: b, selected: b === st.baud }, `${b.toLocaleString()} baud`))),
             h('small', 'Use 115200 or 460800 if flashing fails with long or cheap cables.')),
-          h('div.field', h('span', 'Erase'),
+          h('div.field', h('span', 'Before flashing'),
+            h('label.check', h('input', { type: 'checkbox', checked: st.backupBeforeFlash !== false, onchange: (e) => VF.saveSettings({ backupBeforeFlash: e.target.checked }) }),
+              'Back up the old firmware (see Backups)'),
             h('label.check', h('input', { type: 'checkbox', checked: !!st.eraseBeforeFlash, onchange: (e) => VF.saveSettings({ eraseBeforeFlash: e.target.checked }) }),
-              'Erase the whole flash before every flash')))),
+              'Erase the whole flash')))),
 
       panel('github', 'GitHub', 'Without a token GitHub allows 60 requests an hour. A token with no scopes raises that to 5,000.',
         h('label.field', h('span', 'Personal access token'),

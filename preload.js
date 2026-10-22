@@ -38,6 +38,13 @@ contextBridge.exposeInMainWorld('vf', {
     erase: invoke('flash:erase'),
     onLog: on('flash:log'),
   },
+  backups: {
+    create: invoke('backups:create'),
+    list: invoke('backups:list'),
+    update: invoke('backups:update'),
+    trash: invoke('backups:trash'),
+    folder: invoke('backups:folder'),
+  },
   projects: { list: invoke('projects:list'), save: invoke('projects:save'), remove: invoke('projects:remove') },
   arduino: {
     boards: invoke('arduino:boards'),

@@ -9,6 +9,7 @@ A Windows app in the spirit of M5Burner: browse firmware by board, download it f
 - **My Projects**: add any GitHub repo, a `.bin` on your PC, or a sketch you built in the IDE. Projects show up next to the built-in ones.
 - **Browser**: browse GitHub and docs in the app. Downloaded `.bin`/`.hex` files can be flashed with one click, and GitHub repo pages get a "Flash from releases" bar.
 - **Arduino IDE**: Monaco editor, templates (Blink, WiFi scanner, web server, CYD LED/touch, M5Unified), board picker, Verify/Upload, the Library Manager and "Add build to Store".
+- **Firmware backups**: before every flash, VoltFlash reads the board's whole flash chip and saves it. The **Backups** page groups the saved images by board (chip and MAC address) and restores any of them with one click. You can also back up a board without flashing.
 - **Serial Monitor**: baud picker, timestamps, line endings, command history and a board reset button.
 - Hot-plug detection with names for common USB chips (CP210x, CH340, CH9102, FTDI, ESP native USB), plus drag and drop of firmware files anywhere on the window.
 
