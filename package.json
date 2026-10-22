@@ -1,0 +1,52 @@
+{
+  "name": "voltflash",
+  "productName": "VoltFlash",
+  "version": "1.0.0",
+  "description": "Firmware store, flasher and mini Arduino IDE for ESP32, ESP32-S3, CYD, M5Stack and Arduino boards",
+  "main": "main.js",
+  "author": "VoltFlash",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis portable",
+    "dist:portable": "electron-builder --win portable"
+  },
+  "dependencies": {
+    "monaco-editor": "0.52.2"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "app.voltflash.desktop",
+    "productName": "VoltFlash",
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "renderer/**/*",
+      "catalog.json",
+      "templates/**/*",
+      "node_modules/monaco-editor/min/**/*",
+      "!node_modules/monaco-editor/esm/**",
+      "!node_modules/monaco-editor/dev/**",
+      "!node_modules/monaco-editor/min-maps/**"
+    ],
+    "extraResources": [
+      { "from": "resources/bin", "to": "bin", "filter": ["**/*"] }
+    ],
+    "win": {
+      "target": ["nsis", "portable"],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "VoltFlash-Setup-${version}.exe"
+    },
+    "portable": {
+      "artifactName": "VoltFlash-Portable-${version}.exe"
+    }
+  }
+}

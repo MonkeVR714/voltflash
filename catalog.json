@@ -1,0 +1,228 @@
+{
+  "version": 1,
+  "about": "VoltFlash firmware catalog. Each entry points at a GitHub repo; VoltFlash lists its releases and lets you pick the file for your board. assetPattern filters files, prefer picks the default per category.",
+  "firmware": [
+    {
+      "id": "nerdminer",
+      "name": "NerdMiner v2",
+      "author": "BitMaker-hub",
+      "repo": "BitMaker-hub/NerdMiner_v2",
+      "categories": ["cyd", "esp32", "esp32s3", "m5stack"],
+      "tags": ["Display", "Bitcoin", "Fun"],
+      "description": "A tiny Bitcoin solo-mining lottery with a slick stats screen. One of the most popular things to put on a Cheap Yellow Display.",
+      "assetPattern": "_factory\\.bin$",
+      "prefer": {
+        "cyd": "ESP32-2432S028R_factory",
+        "esp32": "ESP32-devKitv1_factory",
+        "esp32s3": "ESP32-S3-devKitv1_factory",
+        "m5stack": "M5Stick-C-Plus2_factory",
+        "default": "NerdminerV2_factory"
+      }
+    },
+    {
+      "id": "launcher",
+      "name": "Launcher",
+      "author": "bmorcelli",
+      "repo": "bmorcelli/Launcher",
+      "categories": ["cyd", "m5stack", "esp32s3"],
+      "tags": ["Launcher", "Display", "SD card"],
+      "description": "A boot menu that installs and switches between apps from an SD card or the web, without a PC. Supports CYD boards, M5Stack, Cardputer and LilyGO devices.",
+      "assetPattern": "\\.bin$",
+      "prefer": {
+        "cyd": "Launcher-CYD-2432S028\\.bin",
+        "m5stack": "Launcher-m5stack-core2\\.bin",
+        "esp32s3": "headless-esp32s3-8mb",
+        "default": "Launcher-CYD-2432S028\\.bin"
+      }
+    },
+    {
+      "id": "wled",
+      "name": "WLED",
+      "author": "wled",
+      "repo": "wled/WLED",
+      "categories": ["esp32", "esp32s3"],
+      "tags": ["LEDs", "Smart home", "WiFi"],
+      "description": "Control WS2812B / NeoPixel LED strips from your phone with 100+ effects, palettes, presets and Home Assistant support.",
+      "assetPattern": "_ESP32",
+      "prefer": {
+        "esp32": "_ESP32\\.bin$",
+        "esp32s3": "ESP32-S3_8MB_opi\\.bin$",
+        "default": "_ESP32\\.bin$"
+      }
+    },
+    {
+      "id": "tasmota",
+      "name": "Tasmota",
+      "author": "arendst",
+      "repo": "arendst/Tasmota",
+      "categories": ["esp32", "esp32s3"],
+      "tags": ["Smart home", "MQTT", "WiFi"],
+      "description": "Open-source smart home firmware with a web UI, MQTT, rules and hundreds of supported sensors. Factory images flash straight onto a blank board.",
+      "assetPattern": "^tasmota32.*\\.factory\\.bin$",
+      "prefer": {
+        "esp32": "^tasmota32\\.factory\\.bin$",
+        "esp32s3": "^tasmota32s3\\.factory\\.bin$",
+        "default": "^tasmota32\\.factory\\.bin$"
+      }
+    },
+    {
+      "id": "espresense",
+      "name": "ESPresense",
+      "author": "ESPresense",
+      "repo": "ESPresense/ESPresense",
+      "categories": ["esp32", "esp32s3", "m5stack"],
+      "tags": ["Smart home", "Bluetooth", "MQTT"],
+      "description": "Room-by-room presence detection: tracks phones, watches and BLE tags and reports which room they are in to Home Assistant.",
+      "assetPattern": "\\.bin$",
+      "prefer": {
+        "esp32": "^esp32\\.bin$",
+        "esp32s3": "^esp32s3\\.bin$",
+        "m5stack": "m5stickc-plus\\.bin$",
+        "default": "^esp32\\.bin$"
+      }
+    },
+    {
+      "id": "openmqttgateway",
+      "name": "OpenMQTTGateway",
+      "author": "1technophile",
+      "repo": "1technophile/OpenMQTTGateway",
+      "categories": ["esp32", "esp32s3", "m5stack"],
+      "tags": ["Smart home", "Bluetooth", "MQTT", "RF"],
+      "description": "Turns an ESP32 into a gateway that bridges Bluetooth, 433 MHz RF and infrared devices to MQTT and Home Assistant.",
+      "assetPattern": "^esp32.*-firmware\\.bin$",
+      "prefer": {
+        "esp32": "^esp32dev-ble-firmware",
+        "esp32s3": "^esp32s3-dev-c1-ble-firmware",
+        "m5stack": "^esp32-m5stack-ble-firmware",
+        "default": "^esp32dev-ble-firmware"
+      }
+    },
+    {
+      "id": "opendtu",
+      "name": "OpenDTU",
+      "author": "tbnobody",
+      "repo": "tbnobody/OpenDTU",
+      "categories": ["esp32", "esp32s3"],
+      "tags": ["Solar", "Smart home", "MQTT"],
+      "description": "Reads and controls Hoymiles solar micro-inverters over radio, with a live web dashboard and MQTT.",
+      "assetPattern": "\\.bin$",
+      "prefer": {
+        "esp32": "generic_esp32\\.factory\\.bin$",
+        "esp32s3": "generic_esp32s3\\.factory\\.bin$",
+        "default": "generic_esp32\\.factory\\.bin$"
+      }
+    },
+    {
+      "id": "meshcore",
+      "name": "MeshCore",
+      "author": "ripplebiz",
+      "repo": "ripplebiz/MeshCore",
+      "categories": ["esp32s3", "esp32"],
+      "tags": ["LoRa", "Mesh", "Off-grid"],
+      "description": "Off-grid LoRa mesh messaging for Heltec, LilyGO, Xiao and RAK boards. Pair it with the MeshCore phone app.",
+      "assetPattern": "-merged\\.bin$",
+      "prefer": {
+        "esp32s3": "^Heltec_v3_companion_radio_usb",
+        "esp32": "^Heltec_v2_companion_radio_usb",
+        "default": "^Heltec_v3_companion_radio_usb"
+      }
+    },
+    {
+      "id": "openepaperlink",
+      "name": "OpenEPaperLink",
+      "author": "OpenEPaperLink",
+      "repo": "OpenEPaperLink/OpenEPaperLink",
+      "categories": ["esp32s3"],
+      "tags": ["E-paper", "Display", "Smart home"],
+      "description": "Access point firmware for driving cheap electronic shelf labels as wireless e-paper displays.",
+      "assetPattern": "_full\\.bin$",
+      "prefer": {
+        "esp32s3": "ESP32_S3_SIMPLE_AP_full",
+        "default": "ESP32_S3_SIMPLE_AP_full"
+      }
+    },
+    {
+      "id": "bus-pirate",
+      "name": "ESP32 Bus Pirate",
+      "author": "geo-tp",
+      "repo": "geo-tp/ESP32-Bus-Pirate",
+      "categories": ["esp32s3", "m5stack"],
+      "tags": ["Tools", "Electronics", "I2C/SPI/UART"],
+      "description": "A hardware hacker's multitool: talk to I2C, SPI, UART, 1-Wire and more from a serial or web terminal. Runs on S3 dev kits and the Cardputer.",
+      "assetPattern": "\\.bin$",
+      "prefer": {
+        "esp32s3": "_s3-devkit\\.bin$",
+        "m5stack": "_cardputer\\.bin$",
+        "default": "_s3-devkit\\.bin$"
+      }
+    },
+    {
+      "id": "m5-sd-updater",
+      "name": "M5Stack SD Updater",
+      "author": "tobozo",
+      "repo": "tobozo/M5Stack-SD-Updater",
+      "categories": ["m5stack"],
+      "tags": ["Launcher", "SD card"],
+      "description": "Launcher and App Store for M5Stack Core, Fire, Core2 and CoreS3: load apps from the SD card with a menu.",
+      "assetPattern": "\\.bin$",
+      "prefer": {
+        "m5stack": "^M5Core2-Launcher",
+        "default": "^M5Core2-Launcher"
+      }
+    },
+    {
+      "id": "cardputer-demo",
+      "name": "Cardputer User Demo",
+      "author": "M5Stack",
+      "repo": "m5stack/M5Cardputer-UserDemo",
+      "categories": ["m5stack"],
+      "tags": ["Official", "Factory firmware"],
+      "description": "The official factory firmware for the M5Stack Cardputer. Flash it to get your Cardputer back to how it shipped.",
+      "assetPattern": "\\.bin$",
+      "offset": 0
+    },
+    {
+      "id": "stickcplus2-demo",
+      "name": "M5StickC Plus2 User Demo",
+      "author": "M5Stack",
+      "repo": "m5stack/M5StickCPlus2-UserDemo",
+      "categories": ["m5stack"],
+      "tags": ["Official", "Factory firmware"],
+      "description": "The official factory firmware for the M5StickC Plus2, with clock, IMU, IR, mic and buzzer demos.",
+      "assetPattern": "\\.bin$",
+      "offset": 0
+    },
+    {
+      "id": "cardputer-games",
+      "name": "Cardputer Game Station",
+      "author": "geo-tp",
+      "repo": "geo-tp/Cardputer-Game-Station-Emulators",
+      "categories": ["m5stack"],
+      "tags": ["Games", "Emulator"],
+      "description": "Retro console emulators for the Cardputer: NES, Game Boy, Master System, Game Gear and more, loaded from the SD card.",
+      "assetPattern": "\\.bin$"
+    },
+    {
+      "id": "grbl",
+      "name": "Grbl (Uno)",
+      "author": "gnea",
+      "repo": "gnea/grbl",
+      "categories": ["arduino"],
+      "tags": ["CNC", "Laser", "3D"],
+      "description": "The classic CNC motion controller for Arduino Uno. Drives stepper motors for CNC routers, laser engravers and plotters.",
+      "assetPattern": "\\.hex$",
+      "fqbn": "arduino:avr:uno"
+    },
+    {
+      "id": "grbl-mega",
+      "name": "Grbl (Mega 2560)",
+      "author": "gnea",
+      "repo": "gnea/grbl-Mega",
+      "categories": ["arduino"],
+      "tags": ["CNC", "Laser", "3D"],
+      "description": "Grbl for the Arduino Mega 2560: more pins and room for 6-axis builds.",
+      "assetPattern": "\\.hex$",
+      "fqbn": "arduino:avr:mega"
+    }
+  ]
+}

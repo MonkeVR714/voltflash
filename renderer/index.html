@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self' file:; img-src 'self' file: data: https:; style-src 'self' file: 'unsafe-inline'; font-src 'self' file: data:; script-src 'self' file: 'unsafe-eval'; worker-src 'self' file: blob: data:; connect-src 'self' file:" />
+  <title>VoltFlash</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="titlebar">
+    <div class="brand">
+      <span class="brand-mark"></span>
+      <span class="brand-name">Volt<b>Flash</b></span>
+    </div>
+    <div class="search">
+      <span class="search-icon" data-icon="search"></span>
+      <input id="search" type="search" placeholder="Search firmware..." spellcheck="false" />
+    </div>
+    <div class="titlebar-actions">
+      <div class="port-picker" id="portPicker"></div>
+      <button class="btn btn-accent" id="flashFileBtn"><span data-icon="upload"></span>Flash a file</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="sidebar" id="sidebar"></nav>
+    <main class="content" id="content"></main>
+  </div>
+
+  <footer class="statusbar" id="statusbar"></footer>
+
+  <div id="modalRoot"></div>
+  <div id="toasts" class="toasts"></div>
+  <div id="dropOverlay" class="drop-overlay"><div><span data-icon="upload"></span><p>Drop a .bin or .hex to flash it</p></div></div>
+
+  <script src="js/core.js"></script>
+  <script src="js/flash-dialog.js"></script>
+  <script src="js/store-view.js"></script>
+  <script src="js/browser-view.js"></script>
+  <script src="js/ide-view.js"></script>
+  <script src="js/serial-view.js"></script>
+  <script src="js/settings-view.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
