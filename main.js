@@ -41,7 +41,18 @@ function createWindow() {
     },
   });
 
-  win.once('ready-to-show', () => { if (!process.env.VF_SMOKE) win.show(); });
+  win.once('ready-to-show', () => {
+    if (process.env.VF_SMOKE) return;
+    win.show();
+    // When VoltFlash is started by a hidden process (like the updater), Windows
+    // applies that "hidden" to the first show. Check and show again if needed.
+    setTimeout(() => {
+      if (win.isDestroyed() || win.isVisible()) return;
+      win.hide();
+      win.show();
+      win.focus();
+    }, 400);
+  });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   if (process.env.VF_SMOKE) smokeTest(win, process.env.VF_SMOKE);
 

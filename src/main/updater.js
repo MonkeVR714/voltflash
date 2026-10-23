@@ -140,7 +140,7 @@ async function installFolderUpdate(relaunch = true) {
     `for ($i = 0; $i -lt 20 -and -not $ok; $i++) { try { Move-Item -LiteralPath ${q(appDir())} -Destination ${q(oldDir())} -ErrorAction Stop; $ok = $true } catch { Start-Sleep -Milliseconds 500 } }`,
     `if ($ok) { try { Move-Item -LiteralPath ${q(nextDir())} -Destination ${q(appDir())} -ErrorAction Stop } catch { Move-Item -LiteralPath ${q(oldDir())} -Destination ${q(appDir())} } }`,
     'Write-Output "swap ok=$ok"',
-    relaunch ? `Start-Process -FilePath ${q(process.execPath)}` : '',
+    relaunch ? `Start-Process -FilePath ${q(process.execPath)} -WindowStyle Normal` : '',
     'Stop-Transcript | Out-Null',
   ].filter(Boolean).join('\n');
   // -EncodedCommand (UTF-16LE base64) avoids any command-line quoting problems
