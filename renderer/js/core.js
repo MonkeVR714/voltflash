@@ -38,6 +38,9 @@
     image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/>',
     stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
     spinner: '<path d="M21 12a9 9 0 1 1-6.2-8.6"/>',
+    chat: '<path d="M4 5h16v11H9l-5 4z"/>',
+    plot: '<path d="M3 3v18h18"/><path d="m7 15 4-5 4 3 5-7"/>',
+    list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
   };
 
   function icon(name, cls = '') {
@@ -272,9 +275,79 @@
 
   const BAUDS = [115200, 230400, 460800, 921600, 1500000, 2000000];
 
+  // ---------- markdown (built as DOM nodes, never innerHTML) ----------
+  function inline(el, text) {
+    const re = /(`[^`]+`|\*\*[^*]+\*\*|\[[^\]]+\]\((https?:[^)\s]+)\))/g;
+    let last = 0;
+    let m;
+    while ((m = re.exec(text))) {
+      if (m.index > last) el.appendChild(document.createTextNode(text.slice(last, m.index)));
+      const t = m[0];
+      if (t.startsWith('`')) el.appendChild(h('code', t.slice(1, -1)));
+      else if (t.startsWith('**')) el.appendChild(h('b', t.slice(2, -2)));
+      else {
+        const label = t.slice(1, t.indexOf(']'));
+        el.appendChild(h('a', { href: '#', onclick: (e) => { e.preventDefault(); window.vf.app.openExternal(m[2]); } }, label));
+      }
+      last = m.index + t.length;
+    }
+    if (last < text.length) el.appendChild(document.createTextNode(text.slice(last)));
+    return el;
+  }
+
+  function codeBlock(code, lang) {
+    const isSketch = !lang || /^(cpp|c\+\+|c|ino|arduino)$/i.test(lang);
+    const copy = h('button.btn.btn-sm', { onclick: () => navigator.clipboard.writeText(code).then(() => toast('Copied', null, { type: 'ok', timeout: 1500 })) }, 'Copy');
+    return h('div.md-code',
+      h('div.md-code-bar', h('span.dim', lang || 'code'), h('span.spacer'), copy,
+        isSketch && VF.ideInsert ? h('button.btn.btn-sm', { onclick: () => VF.ideInsert(code) }, 'To IDE') : null),
+      h('pre', code));
+  }
+
+  function renderMarkdown(md) {
+    const root = h('div.md');
+    const lines = String(md || '').replace(/\r/g, '').split('\n');
+    let list = null;
+    let table = null;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const fence = line.match(/^\s*```\s*([\w+-]*)/);
+      if (fence) {
+        list = table = null;
+        const body = [];
+        i++;
+        while (i < lines.length && !/^\s*```/.test(lines[i])) body.push(lines[i++]);
+        root.appendChild(codeBlock(body.join('\n'), fence[1]));
+        continue;
+      }
+      if (/^\s*\|.*\|\s*$/.test(line)) {
+        if (/^\s*\|?\s*:?-{2,}/.test(line.replace(/\|/g, ''))) continue;
+        const cells = line.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
+        if (!table) { table = h('table.md-table'); root.appendChild(table); list = null; }
+        table.appendChild(h('tr', cells.map((c) => inline(h('td'), c))));
+        continue;
+      }
+      table = null;
+      const head = line.match(/^#{1,6}\s+(.*)/);
+      if (head) { list = null; root.appendChild(inline(h('h4'), head[1])); continue; }
+      const li = line.match(/^\s*(?:[-*]|(\d+)\.)\s+(.*)/);
+      if (li) {
+        if (!list) { list = h('ul'); root.appendChild(list); }
+        const item = inline(h('li'), (li[1] ? li[1] + '. ' : '') + li[2]);
+        if (/^\s{2,}/.test(line)) item.style.marginLeft = '16px';
+        list.appendChild(item);
+        continue;
+      }
+      list = null;
+      if (!line.trim()) continue;
+      root.appendChild(inline(h('p'), line));
+    }
+    return root;
+  }
+
   window.VF = {
     h, icon, hydrateIcons, clear, append, call, bus, CATS, catById, fmtBytes, timeAgo, hex,
-    toast, errorToast, modal, confirmBox, promptBox, state, saveSettings, releasePort, BAUDS,
+    toast, errorToast, modal, confirmBox, promptBox, state, saveSettings, releasePort, BAUDS, renderMarkdown,
     views: {},
   };
 })();

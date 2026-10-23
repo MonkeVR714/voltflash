@@ -96,6 +96,29 @@
         'Auto check'));
   }
 
+  let aiStatus = null;
+
+  function aiPanel(st) {
+    const a = aiStatus || { running: false, models: [], choices: [] };
+    const urlInput = h('input.input.mono', { value: st.ollamaUrl || '', placeholder: 'http://127.0.0.1:11434', spellcheck: false });
+    const names = Array.from(new Set([...(a.choices || []).map((c) => c.name), ...(a.models || []), st.aiModel].filter(Boolean)));
+    const modelSelect = h('select.select', { onchange: async () => { await VF.saveSettings({ aiModel: modelSelect.value }); refresh(); } },
+      names.map((n) => {
+        const c = (a.choices || []).find((x) => x.name === n);
+        const have = (a.models || []).some((m) => m === n || m === `${n}:latest`);
+        return h('option', { value: n, selected: n === (st.aiModel || 'qwen2.5-coder:3b') }, `${n}${c ? ' · ' + c.size : ''}${have ? ' · installed' : ''}`);
+      }));
+    return panel('chat', 'AI', null,
+      h('div.tool-row', icon(a.running ? 'check' : 'info'),
+        h('div.grow', h('div.name', 'Ollama ', h('span.pill.' + (a.running ? 'ok' : 'no'), a.running ? `v${a.version}` : 'not running'))),
+        a.running ? null : h('button.btn.btn-sm', { onclick: () => window.vf.app.openExternal('https://ollama.com/download') }, icon('download'), 'Get'),
+        h('button.btn.btn-sm', { onclick: refresh }, icon('refresh'))),
+      h('div.two',
+        h('label.field', h('span', 'Model'), modelSelect),
+        h('label.field', h('span', 'Ollama URL'), h('div.row', urlInput,
+          h('button.btn', { onclick: async () => { await VF.saveSettings({ ollamaUrl: urlInput.value.trim() }); refresh(); } }, 'Save')))));
+  }
+
   function render() {
     const st = state.settings;
     const tokenInput = h('input.input.mono', { type: 'password', value: st.githubToken || '', placeholder: 'optional', spellcheck: false });
@@ -104,6 +127,8 @@
 
     clear(body).append(
       h('div', h('h1', { style: { margin: 0 } }, 'Settings')),
+
+      aiPanel(st),
 
       panel('bolt', 'Flashing', 'Defaults for the flash dialog.',
         h('div.two',
@@ -153,7 +178,7 @@
 
   async function refresh() {
     try {
-      [tools, info] = await Promise.all([call(window.vf.tools.status()), call(window.vf.app.info())]);
+      [tools, info, aiStatus] = await Promise.all([call(window.vf.tools.status()), call(window.vf.app.info()), call(window.vf.ai.status())]);
       cores = tools['arduino-cli'].installed ? await call(window.vf.arduino.cores()) : null;
     } catch (e) {
       errorToast(e);

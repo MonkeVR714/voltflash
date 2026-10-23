@@ -25,6 +25,86 @@
   const input = h('input.input', { placeholder: 'Send', disabled: true, spellcheck: false });
   const sendBtn = h('button.btn', { disabled: true, onclick: () => send() }, icon('send'), 'Send');
 
+  // ---------- plotter: graphs numbers from each line ("12 34" or "temp:21.5,hum:40") ----------
+  const COLORS = ['#e0b030', '#6fb3d2', '#6cbf6c', '#d9534f', '#a98bd0', '#d98c3f'];
+  const MAX_POINTS = 400;
+  const plotCanvas = h('canvas.plot-canvas');
+  const plotLegend = h('div.plot-legend');
+  const plotBox = h('div.plot-box', { style: { display: 'none' } }, plotLegend, plotCanvas);
+  let plotOn = false;
+  let series = new Map();
+  let lineBuf = '';
+  let plotQueued = false;
+
+  function plotLine(line) {
+    let pairs = [...line.matchAll(/([A-Za-z_][\w ]{0,20}?)\s*[:=]\s*(-?\d+(?:\.\d+)?)/g)].map((m) => [m[1].trim(), parseFloat(m[2])]);
+    if (!pairs.length) {
+      const nums = line.match(/-?\d+(?:\.\d+)?/g);
+      if (!nums || nums.length > 6 || /[A-Za-z]{4,}/.test(line)) return;
+      pairs = nums.map((n, i) => [`v${i + 1}`, parseFloat(n)]);
+    }
+    for (const [name, v] of pairs.slice(0, 6)) {
+      if (!series.has(name)) {
+        if (series.size >= 6) continue;
+        series.set(name, []);
+      }
+      const arr = series.get(name);
+      arr.push(v);
+      if (arr.length > MAX_POINTS) arr.shift();
+    }
+    if (!plotQueued) { plotQueued = true; requestAnimationFrame(drawPlot); }
+  }
+
+  function drawPlot() {
+    plotQueued = false;
+    if (!plotOn) return;
+    const w = plotCanvas.clientWidth;
+    const hgt = plotCanvas.clientHeight;
+    const dpr = window.devicePixelRatio || 1;
+    if (plotCanvas.width !== w * dpr || plotCanvas.height !== hgt * dpr) { plotCanvas.width = w * dpr; plotCanvas.height = hgt * dpr; }
+    const g = plotCanvas.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, w, hgt);
+    let min = Infinity;
+    let max = -Infinity;
+    for (const arr of series.values()) for (const v of arr) { if (v < min) min = v; if (v > max) max = v; }
+    if (!isFinite(min)) return;
+    if (min === max) { min -= 1; max += 1; }
+    const pad = (max - min) * 0.08;
+    min -= pad; max += pad;
+    const y = (v) => hgt - ((v - min) / (max - min)) * hgt;
+    g.strokeStyle = '#3a3a3a';
+    g.fillStyle = '#7c7c7c';
+    g.font = '11px Consolas, monospace';
+    g.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const v = min + ((max - min) * i) / 4;
+      const yy = Math.round(y(v)) + 0.5;
+      g.beginPath(); g.moveTo(0, yy); g.lineTo(w, yy); g.stroke();
+      g.fillText(+v.toFixed(2), 4, Math.min(hgt - 2, Math.max(10, yy - 2)));
+    }
+    clear(plotLegend);
+    let i = 0;
+    for (const [name, arr] of series) {
+      const color = COLORS[i++ % COLORS.length];
+      g.strokeStyle = color;
+      g.lineWidth = 1.5;
+      g.beginPath();
+      arr.forEach((v, k) => {
+        const xx = w - (arr.length - 1 - k) * (w / (MAX_POINTS - 1));
+        if (k === 0) g.moveTo(xx, y(v)); else g.lineTo(xx, y(v));
+      });
+      g.stroke();
+      plotLegend.appendChild(h('span', { style: { color } }, `${name} ${arr.length ? +arr[arr.length - 1].toFixed(3) : ''}`));
+    }
+  }
+
+  function togglePlot(on) {
+    plotOn = on;
+    plotBox.style.display = on ? '' : 'none';
+    if (on) drawPlot();
+  }
+
   el.append(
     h('div.serial-bar',
       connectBtn,
@@ -32,11 +112,14 @@
       h('div.spacer'),
       baudSelect,
       endingSelect,
+      h('label.check', h('input', { type: 'checkbox', onchange: (e) => togglePlot(e.target.checked) }), 'Plot'),
       h('label.check', h('input', { type: 'checkbox', onchange: (e) => { opts.timestamps = e.target.checked; } }), 'Time'),
       h('label.check', h('input', { type: 'checkbox', checked: true, onchange: (e) => { opts.autoscroll = e.target.checked; } }), 'Scroll'),
       h('button.btn.btn-icon', { title: 'Reset the board (toggles EN via RTS)', onclick: () => resetBoard() }, icon('reset')),
+      h('button.btn.btn-icon', { title: 'Ask AI about this output', onclick: () => VF.askAI && VF.askAI({ log: out.innerText.split('\n').slice(-80).join('\n'), prompt: 'What does this serial output mean? Anything wrong?' }) }, icon('chat')),
       h('button.btn.btn-icon', { title: 'Copy output', onclick: () => navigator.clipboard.writeText(out.innerText).then(() => toast('Copied', null, { type: 'ok' })) }, icon('file')),
-      h('button.btn.btn-icon', { title: 'Clear', onclick: () => { clear(out); partial = null; } }, icon('trash'))),
+      h('button.btn.btn-icon', { title: 'Clear', onclick: () => { clear(out); partial = null; series = new Map(); drawPlot(); } }, icon('trash'))),
+    plotBox,
     out,
     h('div.serial-send', input, sendBtn));
 
@@ -84,7 +167,12 @@
         out.appendChild(partial);
       }
       if (piece) partial.appendChild(document.createTextNode(piece));
-      if (i < parts.length - 1) partial = null;
+      lineBuf += piece;
+      if (i < parts.length - 1) {
+        partial = null;
+        if (plotOn && lineBuf) plotLine(lineBuf);
+        lineBuf = '';
+      }
     });
     trim();
   }
@@ -190,6 +278,7 @@
   bus.on('port', () => { if (!port) renderControls(); });
   bus.on('settings', () => { if (!port) renderControls(); });
 
+  VF.serialWrite = write; // used by the dev smoke test to feed sample data
   VF.views.serial = {
     el,
     show() { renderControls(); if (!port) input.blur(); },

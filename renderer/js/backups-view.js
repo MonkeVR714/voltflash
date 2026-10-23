@@ -38,12 +38,21 @@
 
     clear(body).append(
       h('div.hero', { style: { '--hero-color': 'var(--cyan)' } },
-        h('div',
-          h('h1', 'Backups'),
-          h('p', 'Every time you flash, VoltFlash first saves the firmware that was on the board. Restore it here any time to get the original back.')),
+        h('div.tabs',
+          h('div.tab' + (tab === 'backups' ? '.active' : ''), { onclick: () => { tab = 'backups'; render(); } }, 'Backups'),
+          h('div.tab' + (tab === 'history' ? '.active' : ''), { onclick: () => { tab = 'history'; refreshHistory(); } }, 'History')),
         h('div.hero-actions',
+          h('button.btn.btn-danger', { onclick: eraseBoard }, icon('eraser'), 'Erase board'),
           h('button.btn', { onclick: async () => window.vf.app.openPath(await call(window.vf.backups.folder())) }, icon('folder'), 'Folder'),
           h('button.btn.btn-accent', { onclick: backupNow }, icon('download'), 'Back up now'))));
+
+    if (tab === 'history') {
+      if (!historyList.length) return body.appendChild(h('div.empty', 'Nothing flashed yet'));
+      body.appendChild(h('div.backup-groups', h('div.backup-group', historyList.map((x) => h('div.backup-row',
+        h('div.grow', h('div.backup-title', x.name), h('div.dim', { style: { fontSize: '12px' } }, `${new Date(x.time).toLocaleString()} · ${x.port}`)),
+        x.file ? h('button.btn.btn-sm', { title: 'Flash this again', onclick: () => VF.openFlash({ file: x.file }) }, icon('bolt'), 'Again') : null)))));
+      return;
+    }
 
     if (!backups.length) {
       body.appendChild(h('div.empty', 'No backups'));
@@ -65,6 +74,36 @@
         items.map(row)));
     }
     body.appendChild(list);
+  }
+
+  let tab = 'backups';
+  let historyList = [];
+
+  async function refreshHistory() {
+    try { historyList = await call(window.vf.flash.history()); } catch {}
+    render();
+  }
+
+  // Wipes the whole flash chip (fixes most boot loops). Offers a backup first.
+  async function eraseBoard() {
+    if (!state.port) return toast('No port', null, { type: 'err' });
+    const ok = await VF.confirmBox('Erase board?', `Everything on ${state.port} is wiped.`, { okLabel: 'Erase', danger: true });
+    if (!ok) return;
+    await VF.releasePort();
+    const log = h('div.log', { style: { height: '160px' } });
+    const m = VF.modal({ title: 'Erase', lock: true, body: log });
+    const off = window.vf.flash.onLog((p) => { log.appendChild(h('span', p.text + '\n')); log.scrollTop = log.scrollHeight; });
+    try {
+      await call(window.vf.flash.erase(state.port));
+      toast('Erased', null, { type: 'ok' });
+      m.close();
+    } catch (e) {
+      log.appendChild(h('span.err', e.message + '\n'));
+      m.lock(false);
+      m.setFoot(h('div.spacer'), h('button.btn', { onclick: () => m.close() }, 'Close'));
+    } finally {
+      off();
+    }
   }
 
   async function refresh() {

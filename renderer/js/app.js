@@ -14,6 +14,8 @@
 
   // ---------- navigation ----------
   const TOOLS_NAV = [
+    { id: 'assistant', name: 'Assistant', icon: 'chat' },
+    { id: 'pinouts', name: 'Pinouts', icon: 'chip' },
     { id: 'browser', name: 'Browser', icon: 'globe' },
     { id: 'ide', name: 'Arduino IDE', icon: 'code' },
     { id: 'serial', name: 'Serial Monitor', icon: 'terminal' },

@@ -25,6 +25,11 @@ VoltFlash checks GitHub for a new release when it starts and every 6 hours after
 
 ## Features
 
+- **AI Assistant (local, free):** chat with a model running on your own PC through [Ollama](https://ollama.com). It knows ESP32, ESP32-S3/C3, CYD, M5Stack and Arduino pinouts, wiring for common parts, Arduino-ESP32 code and the usual fixes; these come from the knowledge pack in `knowledge/`. **Explain .bin** reads a firmware file (chip, partitions, compiled-in libraries, text, URLs) and explains what it does and how to wire it. It writes code you can send **To IDE**, and you can ask it about compile errors or serial output. Default model: `qwen2.5-coder:3b` (about 2 GB), which VoltFlash downloads for you.
+- **Pinouts:** safe pins, strapping pins, ADC/touch/buses for every supported board, plus pages for parts wiring, fixes, code and libraries.
+- **Serial Plotter:** tick **Plot** in the Serial Monitor to graph numbers live (`12 34` or `temp:21.5,hum:40`).
+- **Flash history** and **Erase board** on the Backups page.
+
 - **Firmware Store**: categories for ESP32, ESP32-S3, CYD (Cheap Yellow Display), M5Stack and Arduino. Each card lists a project's GitHub releases and suggests the right file for the category and the detected chip.
 - **Smart flashing**: reads the `.bin` to tell full images (flash at `0x0`) from app-only images (`0x10000`), shows which chip it was built for, and warns when that does not match the board you plugged in. Arduino `.hex` files flash through avrdude.
 - **My Projects**: add any GitHub repo, a `.bin` on your PC, or a sketch you built in the IDE. Projects show up next to the built-in ones.

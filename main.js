@@ -10,6 +10,8 @@ const flasher = require('./src/main/flasher');
 const arduino = require('./src/main/arduino');
 const sketches = require('./src/main/sketches');
 const updater = require('./src/main/updater');
+const ai = require('./src/main/ai');
+const knowledge = require('./src/main/knowledge');
 
 let win = null;
 let wantedSerialPort = null;
@@ -183,7 +185,25 @@ function registerIpc() {
 
   // flashing
   handle('flash:analyze', (file) => flasher.analyze(file));
-  handle('flash:start', (opts) => flasher.flash(opts, progress('flash:log')));
+  handle('flash:start', async (opts) => {
+    await flasher.flash(opts, progress('flash:log'));
+    flasher.addHistory({ name: opts.label || path.basename(opts.files[0].path), file: opts.files[0].path, port: opts.port, repo: opts.repo || null });
+    return true;
+  });
+  handle('flash:inspect', (file) => {
+    const r = flasher.inspect(file);
+    return { ...r, text: flasher.reportText(r) };
+  });
+  handle('history:list', () => flasher.history());
+
+  // assistant
+  handle('ai:status', () => ai.status());
+  handle('ai:pull', (name) => ai.pull(name, progress('ai:pull')));
+  handle('ai:chat', (req) => ai.chat(req, progress('ai:event')));
+  handle('ai:cancel', () => ai.cancel());
+  handle('ai:readme', (repo) => ai.readme(repo));
+  handle('knowledge:board', (board) => knowledge.forBoard(board));
+  handle('knowledge:file', (file) => knowledge.byFile(file));
   handle('flash:cancel', () => flasher.cancel());
   handle('flash:detect', (port) => flasher.detect(port, progress('flash:log')));
   handle('flash:erase', (port) => flasher.erase(port, progress('flash:log')));

@@ -243,6 +243,127 @@ async function erase(port, onLog) {
   return true;
 }
 
+// ---------- deep inspection (for the assistant) ----------
+const PART_TYPES = { 0: 'app', 1: 'data' };
+const APP_SUB = (s) => (s === 0 ? 'factory' : s >= 0x10 && s <= 0x1f ? `ota_${s - 0x10}` : s === 0x20 ? 'test' : `app${s}`);
+const DATA_SUB = { 0: 'otadata', 1: 'phy', 2: 'nvs', 3: 'coredump', 4: 'nvs_keys', 5: 'efuse', 0x80: 'esphttpd', 0x81: 'fat', 0x82: 'spiffs', 0x83: 'littlefs' };
+
+function partitions(buf) {
+  const out = [];
+  for (let at = 0x8000; at + 32 <= buf.length && at < 0x9000; at += 32) {
+    if (buf[at] !== 0xaa || buf[at + 1] !== 0x50) break;
+    const type = buf[at + 2];
+    const sub = buf[at + 3];
+    out.push({
+      label: cstr(buf, at + 12, 16),
+      type: PART_TYPES[type] || `type${type}`,
+      subtype: type === 0 ? APP_SUB(sub) : DATA_SUB[sub] || `sub${sub}`,
+      offset: '0x' + buf.readUInt32LE(at + 4).toString(16),
+      size: buf.readUInt32LE(at + 8),
+    });
+  }
+  return out;
+}
+
+function printableRuns(buf, min = 5) {
+  const out = [];
+  let start = -1;
+  for (let i = 0; i <= buf.length; i++) {
+    const c = i < buf.length ? buf[i] : 0;
+    const ok = (c >= 0x20 && c < 0x7f) || c === 0x09;
+    if (ok && start < 0) start = i;
+    else if (!ok && start >= 0) {
+      if (i - start >= min) out.push(buf.toString('latin1', start, Math.min(i, start + 300)));
+      start = -1;
+    }
+  }
+  return out;
+}
+
+// What's inside a firmware: header info, partitions, compiled-in libraries,
+// URLs, human-readable text and pin hints. Pins can't be decoded reliably
+// from machine code, so those are only hints.
+function inspect(file) {
+  const info = analyze(file);
+  const size = Math.min(info.size, 16 * 1024 * 1024);
+  const fd = fs.openSync(file, 'r');
+  const buf = Buffer.alloc(size);
+  fs.readSync(fd, buf, 0, size, 0);
+  fs.closeSync(fd);
+
+  // in full images skip the bootloader area; its strings say nothing about the app
+  const appStart = info.kind === 'merged' || info.kind === 'backup' ? 0x10000 : 0;
+  const runs = info.kind === 'avr-hex' ? [] : printableRuns(buf.subarray(Math.min(appStart, buf.length)));
+  const NOISE = /^[EWIDV] \(%|\(%lu\)|abort\(\) was called|partition table|bootloader|is not bootable|Guru Meditation|Backtrace|assert failed|heap_caps|esp_image|ota data|RNG early|%s:|0x%0|cache|panic|breakpoint|watchdog|CERTIFICATE|&&|instr\b|ELF file|Memory dump|gpio_num|GPIO number|GPIO interrupt|pull mode|constraint|handle|error address|Calculated hash|Expected hash|returning\.\.\./i;
+  const libs = new Set();
+  const comps = new Set();
+  const urls = new Set();
+  const pins = new Set();
+  const texts = [];
+  const seen = new Set();
+  for (const s of runs) {
+    for (const m of s.matchAll(/libraries[\\/]([A-Za-z0-9_.-]{2,40})[\\/]/g)) libs.add(m[1]);
+    for (const m of s.matchAll(/components[\\/]([a-z0-9_]{2,30})[\\/]/g)) comps.add(m[1]);
+    for (const m of s.matchAll(/https?:\/\/[^\s"'<>\\]{4,90}/g)) urls.add(m[0]);
+    for (const m of s.matchAll(/\b(?:GPIO|gpio|Pin|PIN|pin)[ _#:]?(\d{1,2})\b/g)) pins.add(Number(m[1]));
+    // readable phrases: words with spaces, not file paths or format soup
+    const t = s.trim();
+    if (t.length >= 8 && t.length <= 90 && /[A-Za-z]{3,} [A-Za-z]{2,}/.test(t) && !/[\\/]\w+\.(c|cpp|h|hpp)\b/.test(t)
+      && (t.match(/%/g) || []).length < 3 && !NOISE.test(t) && !seen.has(t)) {
+      seen.add(t);
+      texts.push(t);
+    }
+  }
+  // well-known libraries that don't always leave a path behind
+  const SIGS = [['lv_obj', 'LVGL'], ['TFT_eSPI', 'TFT_eSPI'], ['LovyanGFX', 'LovyanGFX'], ['NimBLE', 'NimBLE'], ['PubSubClient', 'PubSubClient'],
+    ['ArduinoJson', 'ArduinoJson'], ['FastLED', 'FastLED'], ['Adafruit_NeoPixel', 'Adafruit_NeoPixel'], ['WiFiManager', 'WiFiManager'],
+    ['AsyncWebServer', 'ESPAsyncWebServer'], ['RadioLib', 'RadioLib'], ['M5Unified', 'M5Unified'], ['U8g2', 'U8g2'], ['esp_camera', 'esp32-camera'],
+    ['XPT2046', 'XPT2046_Touchscreen'], ['ArduinoOTA', 'ArduinoOTA'], ['LittleFS', 'LittleFS'], ['SPIFFS', 'SPIFFS']];
+  const hay = runs.join('\n');
+  for (const [needle, name] of SIGS) if (hay.includes(needle)) libs.add(name);
+
+  const parts = info.kind === 'merged' || info.kind === 'backup' ? partitions(buf) : [];
+  return {
+    ...info,
+    partitions: parts,
+    libraries: [...libs].sort(),
+    components: [...comps].sort().slice(0, 40),
+    urls: [...urls].slice(0, 15),
+    pinHints: [...pins].filter((p) => p <= 48).sort((a, b) => a - b),
+    texts: texts.slice(0, 60),
+  };
+}
+
+// Plain-text version for the assistant prompt.
+function reportText(r) {
+  const lines = [
+    `File: ${r.name} (${(r.size / 1024).toFixed(0)} KB), type: ${r.kind}, chip: ${r.chip || 'unknown'}, flash offset: 0x${(r.offset || 0).toString(16)}`,
+  ];
+  if (r.app) lines.push(`App header: project "${r.app.project}", version "${r.app.version}", built ${r.app.built}, ESP-IDF ${r.app.idf}`);
+  if (r.partitions.length) lines.push('Partitions: ' + r.partitions.map((p) => `${p.label} ${p.type}/${p.subtype} @${p.offset} ${(p.size / 1024).toFixed(0)}KB`).join('; '));
+  if (r.libraries.length) lines.push('Libraries found: ' + r.libraries.join(', '));
+  if (r.components.length) lines.push('ESP-IDF components: ' + r.components.join(', '));
+  if (r.urls.length) lines.push('URLs: ' + r.urls.join(' '));
+  if (r.pinHints.length) lines.push('Pin numbers mentioned in text (hints only): ' + r.pinHints.join(', '));
+  if (r.texts.length) lines.push('Text inside the firmware:\n- ' + r.texts.join('\n- '));
+  return lines.join('\n');
+}
+
+// ---------- flash history ----------
+function historyFile() {
+  return path.join(store.paths.root, 'history.json');
+}
+
+function addHistory(entry) {
+  const list = store.readJson(historyFile(), []);
+  list.unshift({ ...entry, time: Date.now() });
+  store.writeJson(historyFile(), list.slice(0, 300));
+}
+
+function history() {
+  return store.readJson(historyFile(), []);
+}
+
 // ---------- backups ----------
 // A backup is the whole flash chip read back into a .bin, plus a .json next
 // to it describing the board. Being a full image, it restores at 0x0.
@@ -312,4 +433,4 @@ function cancel() {
   }
 }
 
-module.exports = { analyze, flash, detect, erase, backup, listBackups, updateBackup, cancel, CHIP_IDS };
+module.exports = { analyze, inspect, reportText, flash, detect, erase, backup, listBackups, updateBackup, addHistory, history, cancel, CHIP_IDS };

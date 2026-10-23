@@ -180,6 +180,7 @@
       const ready = s.analysis && state.port && s.dlPct === null;
       m.setFoot(
         isGithub && s.release ? h('button.btn.btn-ghost', { onclick: () => { m.close(); VF.openInBrowser(s.release.url); } }, icon('globe'), 'Notes') : null,
+        s.analysis ? h('button.btn.btn-ghost', { onclick: () => { m.close(); VF.askAI({ file: s.file, entry, prompt: 'Explain this firmware: what it does, what hardware it needs, how to wire and flash it.' }); } }, icon('chat'), 'Ask AI') : null,
         h('div.spacer'),
         !state.port ? h('span.dim', 'No port') : null,
         h('button.btn', { onclick: () => m.close() }, 'Cancel'),
@@ -310,6 +311,8 @@
           baud: s.baud,
           erase: s.erase,
           fqbn: s.fqbn,
+          label: entry ? entry.name : s.analysis.name,
+          repo: entry && entry.repo ? entry.repo : null,
           files: [{ offset: s.offset || 0, path: s.file }],
         }));
         prog.classList.remove('indeterminate');

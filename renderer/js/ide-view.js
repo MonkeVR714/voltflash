@@ -36,6 +36,7 @@
   const uploadBtn = h('button.btn.btn-upload', { title: 'Compile and upload (Ctrl+U)', onclick: () => upload() }, icon('arrow'), 'Upload');
   const saveBtn = h('button.btn.btn-icon', { title: 'Save (Ctrl+S)', onclick: () => saveAll() }, icon('save'));
   const libBtn = h('button.btn', { onclick: () => openLibraries() }, icon('book'), 'Libraries');
+  const aiBtn = h('button.btn', { title: 'Ask the assistant about this code', onclick: () => askAboutCode() }, icon('chat'), 'Ask AI');
   const addToStoreBtn = h('button.btn', { title: 'Add the last build to My Projects', onclick: () => addBuildToStore(), disabled: true }, icon('package'), 'Add');
   const usage = h('div.usage');
   const tabs = h('div.editor-tabs');
@@ -54,7 +55,7 @@
       sketchList,
       fileList),
     h('div.ide-main',
-      h('div.ide-toolbar', verifyBtn, uploadBtn, h('div.sep'), boardSelect, saveBtn, libBtn, addToStoreBtn, h('div.spacer'), usage),
+      h('div.ide-toolbar', verifyBtn, uploadBtn, h('div.sep'), boardSelect, saveBtn, libBtn, aiBtn, addToStoreBtn, h('div.spacer'), usage),
       h('div.editor-area', { style: { position: 'relative' } }, tabs, host, emptyState),
       h('div.ide-out',
         h('div.ide-out-head', h('b', 'Output'), outStatus, h('div.spacer'), outProg, cancelBtn,
@@ -470,6 +471,43 @@
     setTimeout(() => q.focus(), 30);
   }
 
+  // ---------- assistant ----------
+  function askAboutCode() {
+    if (!s.sketch || !editor) return VF.askAI({ prompt: '', autoSend: false });
+    const text = outLog.innerText;
+    const failed = /error|failed/i.test(text);
+    VF.askAI({
+      sketch: { name: s.active, text: editor.getValue() },
+      log: failed ? text.split('\n').slice(-60).join('\n') : null,
+      prompt: failed ? 'Why does this fail and how do I fix it?' : '',
+      autoSend: failed,
+    });
+  }
+
+  // Code from the assistant: insert at the cursor, or start a new sketch.
+  async function insertCode(code) {
+    VF.go('ide');
+    await VF.views.ide.show();
+    if (!s.sketch) {
+      const name = 'ai_sketch_' + Date.now().toString(36).slice(-4);
+      try {
+        await call(window.vf.sketch.create(name, 'blank'));
+        await refreshSketches();
+        await openSketch(name);
+        editor.setValue(code);
+        s.models[s.active].dirty = true;
+        renderTabs();
+      } catch (e) {
+        errorToast(e);
+      }
+      return;
+    }
+    const sel = editor.getSelection();
+    editor.executeEdits('assistant', [{ range: sel, text: code, forceMoveMarkers: true }]);
+    editor.focus();
+  }
+  VF.ideInsert = insertCode;
+
   document.addEventListener('keydown', (e) => {
     if (state.view !== 'ide' || !e.ctrlKey) return;
     const k = e.key.toLowerCase();
@@ -478,23 +516,28 @@
     if (k === 'u') { e.preventDefault(); upload(); }
   });
 
-  let initialised = false;
+  let starting = null;
   VF.views.ide = {
     el,
-    async show() {
-      if (initialised) { if (editor) editor.layout(); return; }
-      initialised = true;
-      try {
-        s.boards = await call(window.vf.arduino.boards());
-        s.boardId = state.settings.ideBoard && s.boards.some((b) => b.id === state.settings.ideBoard) ? state.settings.ideBoard : 'esp32';
-        renderBoards();
-        setBusy(false);
-        await refreshSketches();
-        await loadMonaco();
-        if (s.sketches.length) await openSketch(s.sketches[0].name);
-      } catch (e) {
-        errorToast(e, 'IDE failed to start');
+    show() {
+      if (starting) {
+        if (editor) editor.layout();
+        return starting;
       }
+      starting = (async () => {
+        try {
+          s.boards = await call(window.vf.arduino.boards());
+          s.boardId = state.settings.ideBoard && s.boards.some((b) => b.id === state.settings.ideBoard) ? state.settings.ideBoard : 'esp32';
+          renderBoards();
+          setBusy(false);
+          await refreshSketches();
+          await loadMonaco();
+          if (s.sketches.length) await openSketch(s.sketches[0].name);
+        } catch (e) {
+          errorToast(e, 'IDE failed to start');
+        }
+      })();
+      return starting;
     },
   };
 })();
