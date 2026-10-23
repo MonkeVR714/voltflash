@@ -1,7 +1,7 @@
 {
   "name": "voltflash",
   "productName": "VoltFlash",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Firmware store, flasher and mini Arduino IDE for ESP32, ESP32-S3, CYD, M5Stack and Arduino boards",
   "main": "main.js",
   "author": "VoltFlash",

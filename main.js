@@ -237,7 +237,7 @@ app.whenReady().then(() => {
   store.init(app.getPath('userData'));
   registerIpc();
   createWindow();
-  if (!process.env.VF_SMOKE) updater.init((s) => send('update:state', s));
+  if (!process.env.VF_SMOKE || process.env.VF_SMOKE_UPDATER) updater.init((s) => send('update:state', s));
 });
 
 app.on('window-all-closed', () => {

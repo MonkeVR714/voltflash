@@ -39,7 +39,11 @@ Start-Sleep -Milliseconds 500
 
 Say 'Installing ...'
 if (Test-Path $dir) { Remove-Item $dir -Recurse -Force }
-Expand-Archive -LiteralPath $zip -DestinationPath $dir -Force
+New-Item -ItemType Directory -Path $dir | Out-Null
+# Windows' built-in tar unpacks zips far faster than Expand-Archive
+$tar = Join-Path $env:WINDIR 'System32\tar.exe'
+if (Test-Path $tar) { & $tar -xf $zip -C $dir }
+if (-not (Test-Path $exe)) { Expand-Archive -LiteralPath $zip -DestinationPath $dir -Force }
 Remove-Item $zip -Force
 if (-not (Test-Path $exe)) { throw "Install failed: $exe is missing." }
 
@@ -48,12 +52,20 @@ $shell = New-Object -ComObject WScript.Shell
 $startMenu = Join-Path ([Environment]::GetFolderPath('Programs')) 'VoltFlash.lnk'
 $desktop = Join-Path ([Environment]::GetFolderPath('Desktop')) 'VoltFlash.lnk'
 foreach ($path in @($startMenu, $desktop)) {
-  $lnk = $shell.CreateShortcut($path)
-  $lnk.TargetPath = $exe
-  $lnk.WorkingDirectory = $dir
-  $lnk.IconLocation = Join-Path $dir 'resources\app\build\icon.ico'
-  $lnk.Description = 'VoltFlash firmware flasher'
-  $lnk.Save()
+  # WScript.Shell can't always save into OneDrive or non-English folders, so
+  # build the shortcut in TEMP and move it into place.
+  try {
+    $tmp = Join-Path $env:TEMP ("vf-" + [guid]::NewGuid().ToString('N') + '.lnk')
+    $lnk = $shell.CreateShortcut($tmp)
+    $lnk.TargetPath = $exe
+    $lnk.WorkingDirectory = $dir
+    $lnk.IconLocation = Join-Path $dir 'resources\app\build\icon.ico'
+    $lnk.Description = 'VoltFlash firmware flasher'
+    $lnk.Save()
+    Move-Item -LiteralPath $tmp -Destination $path -Force
+  } catch {
+    Say "Could not create the shortcut $path ($($_.Exception.Message))" Yellow
+  }
 }
 
 # Uninstaller + entry in Settings > Apps
@@ -61,7 +73,7 @@ $uninstall = Join-Path $dir 'uninstall.ps1'
 @"
 Get-Process VoltFlash -ErrorAction SilentlyContinue | Where-Object { `$_.Path -like '$dir*' } | Stop-Process -Force
 Start-Sleep -Milliseconds 500
-Remove-Item '$startMenu', '$desktop' -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath '$startMenu', '$desktop' -Force -ErrorAction SilentlyContinue
 Remove-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\VoltFlashApp' -Recurse -Force -ErrorAction SilentlyContinue
 Set-Location `$env:TEMP
 Remove-Item '$dir' -Recurse -Force
