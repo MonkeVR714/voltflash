@@ -36,7 +36,7 @@
   const uploadBtn = h('button.btn.btn-upload', { title: 'Compile and upload (Ctrl+U)', onclick: () => upload() }, icon('arrow'), 'Upload');
   const saveBtn = h('button.btn.btn-icon', { title: 'Save (Ctrl+S)', onclick: () => saveAll() }, icon('save'));
   const libBtn = h('button.btn', { onclick: () => openLibraries() }, icon('book'), 'Libraries');
-  const addToStoreBtn = h('button.btn', { title: 'Add the last build to My Projects', onclick: () => addBuildToStore(), disabled: true }, icon('package'), 'Add to Store');
+  const addToStoreBtn = h('button.btn', { title: 'Add the last build to My Projects', onclick: () => addBuildToStore(), disabled: true }, icon('package'), 'Add');
   const usage = h('div.usage');
   const tabs = h('div.editor-tabs');
   const host = h('div.editor-host');
@@ -46,8 +46,7 @@
   const outStatus = h('span.dim');
   const cancelBtn = h('button.btn.btn-sm.btn-danger', { style: { display: 'none' }, onclick: () => window.vf.arduino.cancel() }, icon('stop'), 'Stop');
   const emptyState = h('div.empty', { style: { position: 'absolute', inset: '0', display: 'grid', placeItems: 'center', background: '#1e1e1e' } },
-    h('div', icon('code'), h('h3', 'No sketch open'), h('p', 'Create a new sketch from a template to get started.'),
-      h('button.btn.btn-accent', { onclick: () => newSketch() }, icon('plus'), 'New sketch')));
+    h('div', h('button.btn.btn-accent', { onclick: () => newSketch() }, icon('plus'), 'New sketch')));
 
   el.appendChild(h('div.ide',
     h('aside.ide-side',
@@ -139,7 +138,7 @@
 
   function renderSketches() {
     clear(sketchList);
-    if (!s.sketches.length) sketchList.appendChild(h('div.dim', { style: { padding: '10px', fontSize: '12.5px' } }, 'No sketches yet.'));
+    if (!s.sketches.length) sketchList.appendChild(h('div.dim', { style: { padding: '10px', fontSize: '12.5px' } }, '-'));
     for (const sk of s.sketches) {
       const board = s.boards.find((b) => b.id === sk.board);
       sketchList.appendChild(h('div.ide-item' + (s.sketch === sk.name ? '.active' : ''), { onclick: () => openSketch(sk.name), title: sk.name },
@@ -288,9 +287,9 @@
           await openSketch(name);
           if (res.board) { s.boardId = res.board; boardSelect.value = res.board; }
           if (res.libs && res.libs.length) {
-            toast('This template uses libraries', res.libs.join(', '), {
+            toast('Needs ' + res.libs.join(', '), null, {
               timeout: 15000,
-              actions: [{ label: 'Install them', primary: true, onClick: () => installLibs(res.libs) }],
+              actions: [{ label: 'Install', primary: true, onClick: () => installLibs(res.libs) }],
             });
           }
         } catch (e) {
@@ -316,7 +315,7 @@
   }
 
   async function trashSketch() {
-    const ok = await confirmBox('Delete sketch?', `"${s.sketch}" will be moved to the Recycle Bin. You can restore it from there.`, { okLabel: 'Move to Recycle Bin', danger: true });
+    const ok = await confirmBox('Delete?', s.sketch, { okLabel: 'Delete', danger: true });
     if (!ok) return;
     await call(window.vf.sketch.trash(s.sketch));
     for (const m of Object.values(s.models)) m.model.dispose();
@@ -341,8 +340,8 @@
     const core = cores.find((c) => c.id === coreId);
     if (!core || core.installed) return true;
     return confirmBox(`Install ${core.name} board package?`,
-      `The first build for this board needs the ${core.name} package. ${core.note} It downloads once and is reused after that.`,
-      { okLabel: 'Download and build' });
+      core.note,
+      { okLabel: 'Install' });
   }
 
   async function verify() {
@@ -361,13 +360,13 @@
     } catch (e) {
       setBusy(false, 'Build failed');
       log(e.message, 'err');
-      toast('Build failed', 'See the output panel for the error.', { type: 'err' });
+      toast('Build failed', null, { type: 'err' });
     }
   }
 
   async function upload() {
     if (!s.sketch || s.busy) return;
-    if (!state.port) return toast('No port selected', 'Plug in your board and pick its COM port at the top.', { type: 'err' });
+    if (!state.port) return toast('No port', null, { type: 'err' });
     await saveAll();
     const b = board();
     if (!(await coreReady(b.fqbn))) return;
@@ -379,14 +378,14 @@
       const r = await call(window.vf.arduino.upload({ sketchDir, fqbn: b.fqbn, port: state.port }));
       buildDone(r);
       setBusy(false, 'Uploaded');
-      toast('Upload complete', `${s.sketch} is running on ${state.port}.`, {
-        type: 'ok', actions: [{ label: 'Serial Monitor', onClick: () => VF.go('serial') }],
+      toast('Uploaded', null, {
+        type: 'ok', actions: [{ label: 'Serial', onClick: () => VF.go('serial') }],
       });
     } catch (e) {
       setBusy(false, 'Upload failed');
       log(e.message, 'err');
       toast('Upload failed', /No serial data|Failed to connect/i.test(e.message)
-        ? 'Hold BOOT, tap RESET, release BOOT and try again.' : 'See the output panel for details.', { type: 'err' });
+        ? 'Hold BOOT and retry' : null, { type: 'err' });
     }
   }
 
@@ -423,8 +422,8 @@
   }
 
   function openLibraries() {
-    const m = modal({ title: 'Libraries', sub: 'Search the Arduino Library Manager and install with one click.', size: 'wide' });
-    const q = h('input.input.grow', { placeholder: 'Search libraries (TFT_eSPI, FastLED, ArduinoJson...)', spellcheck: false });
+    const m = modal({ title: 'Libraries', size: 'wide' });
+    const q = h('input.input.grow', { placeholder: 'Search', spellcheck: false });
     const results = h('div', { style: { display: 'grid', gap: '8px' } });
     let installed = [];
     const search = async () => {
@@ -444,7 +443,7 @@
             try {
               installed = await call(window.vf.arduino.libInstall(lib.name));
               btn.textContent = 'Installed';
-              toast('Library installed', lib.name, { type: 'ok' });
+              toast('Installed', null, { type: 'ok' });
             } catch (e) {
               btn.disabled = false;
               btn.textContent = 'Install';

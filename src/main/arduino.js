@@ -31,8 +31,8 @@ const BOARDS = [
 ];
 
 const CORES = [
-  { id: 'esp32:esp32', name: 'ESP32 (Espressif)', note: 'ESP32, S3, C3, CYD and M5Stack boards. Large download (about 1 GB).' },
-  { id: 'arduino:avr', name: 'Arduino AVR', note: 'Uno, Nano, Mega, Leonardo. Small download.' },
+  { id: 'esp32:esp32', name: 'ESP32 (Espressif)', note: '~1 GB' },
+  { id: 'arduino:avr', name: 'Arduino AVR', note: 'small' },
 ];
 
 let current = null;

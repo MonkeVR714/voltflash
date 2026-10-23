@@ -53,8 +53,8 @@
 
   function fillPortSelect(sel) {
     clear(sel);
-    if (!state.ports.length) sel.appendChild(h('option', { value: '' }, 'No boards found, plug one in'));
-    else if (!state.port) sel.appendChild(h('option', { value: '' }, 'Choose a port...'));
+    if (!state.ports.length) sel.appendChild(h('option', { value: '' }, 'No ports'));
+    else if (!state.port) sel.appendChild(h('option', { value: '' }, 'Port'));
     for (const p of state.ports) sel.appendChild(h('option', { value: p.port, selected: p.port === state.port }, portLabel(p)));
     sel.title = state.port ? (state.ports.find((p) => p.port === state.port) || {}).label || state.port : 'Pick the COM port of your board';
   }
@@ -85,11 +85,11 @@
       state.ports = ports;
       if (!firstScan) {
         for (const p of added) {
-          toast('Board connected', `${p.port} · ${p.chip || p.label}`, {
+          toast(`${p.port} ${p.chip || ''}`, null, {
             type: 'ok',
             actions: [
-              { label: 'Use it', primary: true, onClick: () => setPort(p.port) },
-              { label: 'Detect chip', onClick: () => { setPort(p.port); detectBoard(p.port); } },
+              { label: 'Use', primary: true, onClick: () => setPort(p.port) },
+              { label: 'Detect', onClick: () => { setPort(p.port); detectBoard(p.port); } },
             ],
           });
         }
@@ -113,7 +113,7 @@
   }
 
   async function detectBoard(port) {
-    const dismiss = toast('Detecting board', `Talking to ${port}...`, { timeout: 0 });
+    const dismiss = toast('Detecting...', null, { timeout: 0 });
     await VF.releasePort();
     try {
       const info = await call(window.vf.flash.detect(port));
@@ -134,7 +134,7 @@
     h('span.port-dot'),
     VF.portSelect(),
     h('button.btn.btn-icon', { title: 'Refresh ports', onclick: () => scanPorts() }, icon('refresh')),
-    h('button.btn.btn-icon', { title: 'Detect the chip on this port', onclick: () => state.port ? detectBoard(state.port) : toast('No port selected', 'Plug in a board first.', { type: 'err' }) }, icon('chip')));
+    h('button.btn.btn-icon', { title: 'Detect the chip on this port', onclick: () => state.port ? detectBoard(state.port) : toast('No port', null, { type: 'err' }) }, icon('chip')));
   bus.on('port', () => portPicker.querySelector('.port-dot').classList.toggle('on', !!state.port));
 
   // ---------- status bar ----------
@@ -148,12 +148,12 @@
     VF.append(clear(statusbar), [
       toolProgress
         ? h('span.item', icon('download'), `${toolProgress.tool}: ${toolProgress.stage}`, h('span.mini-progress', h('div', { style: { width: (toolProgress.pct || 0) + '%' } })))
-        : item(t.esptool && t.esptool.installed ? 'ok' : 'warn', 'bolt', t.esptool && t.esptool.installed ? `esptool ${t.esptool.version}` : 'esptool: downloads on first flash'),
-      item(t['arduino-cli'] && t['arduino-cli'].installed ? 'ok' : '', 'code', t['arduino-cli'] && t['arduino-cli'].installed ? `arduino-cli ${t['arduino-cli'].version}` : 'arduino-cli: downloads when you first build'),
+        : item(t.esptool && t.esptool.installed ? 'ok' : '', 'bolt', t.esptool && t.esptool.installed ? `esptool ${t.esptool.version}` : 'esptool -'),
+      item(t['arduino-cli'] && t['arduino-cli'].installed ? 'ok' : '', 'code', t['arduino-cli'] && t['arduino-cli'].installed ? `arduino-cli ${t['arduino-cli'].version}` : 'arduino-cli -'),
       item(state.port ? 'ok' : '', 'usb', state.port ? `${state.port}${det && det.chip ? ' · ' + det.chip : ''}` : `${state.ports.length} port${state.ports.length === 1 ? '' : 's'}`),
       h('span.spacer'),
       updateItem(),
-      h('span.item', `${(state.catalog.firmware || []).length} firmware · ${state.projects.length} of yours`),
+      
       h('span.item', `VoltFlash ${state.update ? state.update.current : ''}`)]);
   }
 
@@ -162,13 +162,13 @@
     const u = state.update;
     if (!u) return null;
     if (u.status === 'downloading') {
-      return h('span.item', icon('download'), `Downloading update ${u.version || ''}`, h('span.mini-progress', h('div', { style: { width: (u.pct || 0) + '%' } })));
+      return h('span.item', icon('download'), 'Update', h('span.mini-progress', h('div', { style: { width: (u.pct || 0) + '%' } })));
     }
     if (u.status === 'ready') {
-      return h('button.btn.btn-sm.btn-accent', { onclick: installUpdate }, icon('reset'), `Restart to update to ${u.version}`);
+      return h('button.btn.btn-sm.btn-accent', { onclick: installUpdate }, icon('reset'), 'Restart to update');
     }
     if (u.status === 'available') {
-      return h('button.btn.btn-sm', { onclick: () => window.vf.app.openExternal(u.url) }, icon('download'), `VoltFlash ${u.version} is out`);
+      return h('button.btn.btn-sm', { onclick: () => window.vf.app.openExternal(u.url) }, icon('download'), u.version);
     }
     return null;
   }
@@ -190,15 +190,15 @@
     bus.emit('update', u);
     if (u.status === 'ready' && announced !== u.version) {
       announced = u.version;
-      toast(`VoltFlash ${u.version} is ready`, 'Restart now to update, or it will be installed the next time you open VoltFlash.', {
+      toast(`Update ${u.version}`, null, {
         type: 'ok',
         timeout: 0,
-        actions: [{ label: 'Restart now', primary: true, onClick: installUpdate }, { label: 'Later', onClick: () => {} }],
+        actions: [{ label: 'Restart', primary: true, onClick: installUpdate }],
       });
     }
     if (u.status === 'available' && announced !== u.version) {
       announced = u.version;
-      toast(`VoltFlash ${u.version} is out`, 'This portable copy can\'t update itself. Download the new version from GitHub.', {
+      toast(`Update ${u.version}`, null, {
         timeout: 0,
         actions: [{ label: 'Download', primary: true, onClick: () => window.vf.app.openExternal(u.url) }],
       });
@@ -247,7 +247,7 @@
     const file = e.dataTransfer.files[0];
     if (!file) return;
     const p = window.vf.app.pathForFile(file);
-    if (!/\.(bin|hex)$/i.test(p)) return toast('Not a firmware file', 'Drop a .bin or .hex file.', { type: 'err' });
+    if (!/\.(bin|hex)$/i.test(p)) return toast('Not .bin/.hex', null, { type: 'err' });
     VF.openFlash({ file: p });
   });
 

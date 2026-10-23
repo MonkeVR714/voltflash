@@ -73,7 +73,7 @@
             h('div.section-title', icon('github'), 'Release'),
             s.loadError
               ? h('div.notice.err', icon('alert'), h('div.grow', s.loadError), h('button.btn.btn-sm', { onclick: () => loadReleases(true) }, 'Retry'))
-              : h('div.row.muted', icon('spinner', 'spin'), 'Loading releases from GitHub...'));
+              : h('div.row.muted', 'Loading...'));
         }
         const relSelect = h('select.select.grow', {
           onchange: (e) => { s.release = s.releases[e.target.selectedIndex]; s.asset = null; s.analysis = null; s.file = null; pickDefaultAsset(); render(); },
@@ -84,7 +84,7 @@
         let assets = s.release.assets.filter((a) => !pattern || pattern.test(a.name));
         if (!assets.length) assets = s.release.assets;
         const best = [...assets].sort((a, b) => scoreAsset(b, entry, category) - scoreAsset(a, entry, category))[0];
-        const filterInput = h('input.input', { placeholder: `Filter ${assets.length} files (e.g. CYD, S3, Core2)`, value: s.filter, spellcheck: false });
+        const filterInput = h('input.input', { placeholder: 'Filter', value: s.filter, spellcheck: false });
         filterInput.addEventListener('input', () => {
           s.filter = filterInput.value;
           m.body.querySelector('.asset-list').replaceWith(assetList(assets, best));
@@ -95,31 +95,31 @@
           return h('div.asset-list', vis.length ? vis.map((a) => h('div.asset' + (s.asset === a ? '.selected' : ''), {
             onclick: () => selectAsset(a),
           }, h('span.radio'), h('span.name', { title: a.name }, a.name),
-          a === bestAsset ? h('span.star', 'SUGGESTED') : null,
-          h('span.meta', fmtBytes(a.size)))) : h('div.dim', { style: { padding: '8px' } }, 'No files match that filter.'));
+          a === bestAsset ? h('span.star', 'best') : null,
+          h('span.meta', fmtBytes(a.size)))) : h('div.dim', { style: { padding: '8px' } }, 'No match'));
         }
 
         return h('div',
           h('div.section-title', icon('github'), 'Release'),
           h('div.row', relSelect, h('button.btn.btn-icon', { title: 'Reload releases', onclick: () => loadReleases(true) }, icon('refresh'))),
           h('div', { style: { height: '12px' } }),
-          h('div.section-title', icon('file'), 'Firmware file', h('span.dim', { style: { textTransform: 'none', fontWeight: 400 } }, '· pick the one for your board')),
+          h('div.section-title', icon('file'), 'File'),
           assets.length > 6 ? h('div', { style: { marginBottom: '8px' } }, filterInput) : null,
           assetList(assets, best));
       }
 
       return h('div',
-        h('div.section-title', icon('file'), 'Firmware file'),
+        h('div.section-title', icon('file'), 'File'),
         s.file
           ? h('div.asset.selected', h('span.radio'), h('span.name', s.file.split(/[\\/]/).pop()), h('span.meta', s.analysis ? fmtBytes(s.analysis.size) : ''),
             entry && entry.source === 'file' ? null : h('button.btn.btn-sm', { onclick: (e) => { e.stopPropagation(); pickFile(); } }, 'Change'))
-          : h('button.btn.btn-lg.btn-block', { onclick: pickFile }, icon('folder'), 'Choose a .bin or .hex file'));
+          : h('button.btn.btn-lg.btn-block', { onclick: pickFile }, icon('folder'), 'Choose file'));
     }
 
     function analysisSection() {
       if (s.dlPct !== null) {
         return h('div',
-          h('div.section-title', icon('download'), 'Downloading'),
+          h('div.section-title', icon('download'), 'Download'),
           h('div.progress', h('div', { style: { width: s.dlPct + '%' } })),
           h('div.dim', { style: { marginTop: '6px', fontSize: '12px' } }, `${s.asset ? s.asset.name : ''} · ${s.dlPct}%`));
       }
@@ -139,40 +139,39 @@
       });
 
       return h('div',
-        h('div.section-title', icon('chip'), 'What VoltFlash found'),
+        h('div.section-title', icon('chip'), 'Info'),
         h('div.analysis',
           h('div.stat', h('div.k', 'Type'), h('div.v', { title: a.summary }, kindLabel)),
-          h('div.stat', h('div.k', 'Built for'), h('div.v' + (mismatch ? '.warn' : a.chip ? '.good' : ''), isHex ? 'AVR' : a.chip || 'Unknown')),
+          h('div.stat', h('div.k', 'Chip'), h('div.v' + (mismatch ? '.warn' : a.chip ? '.good' : ''), isHex ? 'AVR' : a.chip || 'Unknown')),
           isHex
             ? h('div.stat', h('div.k', 'Size'), h('div.v', fmtBytes(a.size)))
-            : h('div.stat', h('div.k', 'Flash offset'), offsetInput),
-          h('div.stat', h('div.k', a.app && a.app.version ? 'Version' : 'Size'), h('div.v', { title: a.app ? `${a.app.project} ${a.app.version} · IDF ${a.app.idf}` : '' }, a.app && a.app.version ? a.app.version : fmtBytes(a.size)))),
-        h('div.dim', { style: { fontSize: '12.5px', marginTop: '8px' } }, a.summary),
+            : h('div.stat', h('div.k', 'Offset'), offsetInput),
+          h('div.stat', h('div.k', 'Size'), h('div.v', { title: a.app ? `${a.app.project} ${a.app.version}` : '' }, fmtBytes(a.size)))),
         a.warning ? h('div.notice', { style: { margin: '10px 0 0' } }, icon('alert'), a.warning) : null,
         mismatch ? h('div.notice.err', { style: { margin: '10px 0 0' } }, icon('alert'),
-          `This file is built for ${a.chip}, but the board on ${state.port} is ${fam}. It will not run. Pick another file.`) : null);
+          `Built for ${a.chip}, board is ${fam}.`) : null);
     }
 
     function targetSection() {
       const isHex = s.analysis ? s.analysis.target === 'avr' : (s.file || '').toLowerCase().endsWith('.hex');
       const det = state.detected[state.port];
       return h('div',
-        h('div.section-title', icon('usb'), 'Your board'),
+        h('div.section-title', icon('usb'), 'Board'),
         h('div.row.wrap',
           h('label.field.grow', h('span', 'Port'), VF.portSelect({ full: true })),
           isHex
             ? h('label.field', h('span', 'Board'), h('select.select', { onchange: (e) => { s.fqbn = e.target.value; } },
               AVR_BOARDS.map((b) => h('option', { value: b.fqbn, selected: b.fqbn === s.fqbn }, b.name))))
-            : h('label.field', h('span', 'Speed (baud)'), h('select.select', { onchange: (e) => { s.baud = Number(e.target.value); } },
+            : h('label.field', h('span', 'Baud'), h('select.select', { onchange: (e) => { s.baud = Number(e.target.value); } },
               BAUDS.map((b) => h('option', { value: b, selected: b === s.baud }, b.toLocaleString())))),
-          !isHex ? h('label.field', h('span', ' '), h('button.btn', { onclick: detectBoard, title: 'Ask the board what chip it is' }, icon('chip'), 'Detect')) : null),
+          !isHex ? h('label.field', h('span', ' '), h('button.btn', { onclick: detectBoard }, icon('chip'), 'Detect')) : null),
         det && !isHex ? h('div.dim', { style: { fontSize: '12.5px', marginTop: '8px' } },
-          `Detected: ${det.chip}${det.flashSize ? ' · ' + det.flashSize + ' flash' : ''}${det.mac ? ' · ' + det.mac : ''}`) : null,
+          `${det.chip}${det.flashSize ? ' · ' + det.flashSize + ' flash' : ''}${det.mac ? ' · ' + det.mac : ''}`) : null,
         !isHex ? h('div', { style: { marginTop: '10px', display: 'grid', gap: '8px' } },
           h('label.check', h('input', { type: 'checkbox', checked: s.backup, onchange: (e) => { s.backup = e.target.checked; } }),
-            'Back up the firmware on the board first (so you can restore it later from Backups)'),
+            'Back up first'),
           h('label.check', h('input', { type: 'checkbox', checked: s.erase, onchange: (e) => { s.erase = e.target.checked; } }),
-            'Erase the whole flash first (wipes saved settings, fixes most boot loops)')) : null);
+            'Erase first')) : null);
     }
 
     function render() {
@@ -180,9 +179,9 @@
       m.setBody(sourceSection(), analysisSection(), targetSection());
       const ready = s.analysis && state.port && s.dlPct === null;
       m.setFoot(
-        isGithub && s.release ? h('button.btn.btn-ghost', { onclick: () => { m.close(); VF.openInBrowser(s.release.url); } }, icon('globe'), 'Release notes') : null,
+        isGithub && s.release ? h('button.btn.btn-ghost', { onclick: () => { m.close(); VF.openInBrowser(s.release.url); } }, icon('globe'), 'Notes') : null,
         h('div.spacer'),
-        !state.port ? h('span.dim', 'Plug in a board and pick its port') : null,
+        !state.port ? h('span.dim', 'No port') : null,
         h('button.btn', { onclick: () => m.close() }, 'Cancel'),
         h('button.btn.btn-accent.btn-lg', { disabled: !ready, onclick: startFlash }, icon('bolt'), 'Flash'));
     }
@@ -254,7 +253,7 @@
     }
 
     async function detectBoard() {
-      if (!state.port) return toast('No port selected', 'Plug in your board and pick its COM port.', { type: 'err' });
+      if (!state.port) return toast('No port', null, { type: 'err' });
       await VF.detectBoard(state.port);
       render();
     }
@@ -273,7 +272,7 @@
       m.setTitle(`Flashing ${entry ? entry.name : s.analysis.name}`, `${port} · ${isHex ? 'arduino-cli' : 'esptool @ ' + s.baud.toLocaleString() + ' baud'}`);
       m.setBody(h('div', h('div.flash-status', stageEl, pctEl), prog), log);
       const cancelBtn = h('button.btn.btn-danger', { onclick: () => window.vf.flash.cancel() }, icon('stop'), 'Cancel');
-      m.setFoot(h('div.dim', 'Keep the board plugged in until this finishes.'), h('div.spacer'), cancelBtn);
+      m.setFoot(h('div.spacer'), cancelBtn);
 
       let lastWasProgress = false;
       const off = window.vf.flash.onLog((p) => {
@@ -332,21 +331,21 @@
       m.lock(false);
       log.style.height = '170px';
       const result = ok
-        ? h('div.result', h('div.big.ok', icon('check')), h('h3', 'Flashed successfully'), h('p.muted', { style: { margin: 0 } }, `${entry ? entry.name : 'Your firmware'} is now running on ${state.port}.`))
-        : h('div.result', h('div.big.fail', icon('x')), h('h3', message === 'Cancelled' ? 'Flashing cancelled' : 'Flashing failed'), h('p.muted', { style: { margin: '0 auto', maxWidth: '560px' } }, message));
+        ? h('div.result', h('div.big.ok', icon('check')), h('h3', 'Done'))
+        : h('div.result', h('div.big.fail', icon('x')), h('h3', message === 'Cancelled' ? 'Cancelled' : 'Failed'), h('p.muted', { style: { margin: '0 auto', maxWidth: '560px' } }, message));
       const backupNote = s.lastBackup
         ? h('div.notice.info', { style: { margin: 0 } }, icon('save'),
-          h('div.grow', `The old firmware was saved as ${s.lastBackup.name} (${VF.fmtBytes(s.lastBackup.size)}).`),
-          h('button.btn.btn-sm', { onclick: () => { m.close(); VF.go('backups'); } }, 'View backups'))
+          h('div.grow', `Backup: ${s.lastBackup.name}`),
+          h('button.btn.btn-sm', { onclick: () => { m.close(); VF.go('backups'); } }, 'Open'))
         : null;
       m.setBody(result, backupNote, h('details', h('summary.dim', { style: { cursor: 'pointer', marginBottom: '8px' } }, 'Log'), log));
       if (!ok) m.body.querySelector('details').open = true;
       m.setFoot(
-        ok ? h('button.btn', { onclick: () => { m.close(); VF.go('serial'); } }, icon('terminal'), 'Open Serial Monitor') : null,
+        ok ? h('button.btn', { onclick: () => { m.close(); VF.go('serial'); } }, icon('terminal'), 'Serial') : null,
         h('div.spacer'),
-        h('button.btn', { onclick: () => { s.busy = false; m.setTitle(entry ? entry.name : 'Flash a file', sub); render(); } }, icon('reset'), ok ? 'Flash again' : 'Try again'),
+        h('button.btn', { onclick: () => { s.busy = false; m.setTitle(entry ? entry.name : 'Flash a file', sub); render(); } }, icon('reset'), 'Again'),
         h('button.btn.btn-accent', { onclick: () => m.close() }, 'Done'));
-      if (ok) toast('Flash complete', `${entry ? entry.name : 'Firmware'} flashed to ${state.port}`, { type: 'ok' });
+      if (ok) toast('Flashed', null, { type: 'ok' });
     }
 
     if (isGithub) loadReleases(false);

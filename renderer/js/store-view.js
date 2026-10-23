@@ -4,7 +4,6 @@
 
   const el = h('section.view#view-store');
   let currentCat = 'all';
-  let activeTag = null;
 
   function allEntries() {
     const builtIn = (state.catalog.firmware || []).map((f) => ({ ...f, builtIn: true }));
@@ -29,30 +28,18 @@
   }
 
   function coverUrl(e) {
-    if (e.image) return /^https?:/i.test(e.image) ? e.image : 'file:///' + e.image.replace(/\\/g, '/');
-    if (e.repo) return `https://opengraph.githubassets.com/1/${e.repo}`;
-    return null;
-  }
-
-  function initials(name) {
-    return name.split(/[\s_-]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
+    return /^https?:/i.test(e.image) ? e.image : 'file:///' + e.image.replace(/\\/g, '/');
   }
 
   function card(e) {
-    const mainCat = catById((e.categories || []).find((c) => c !== 'mine') || (e.categories || [])[0] || 'all');
-    const url = coverUrl(e);
-    const initialsEl = h('div.initials', initials(e.name));
-    const cover = h('div.card-cover', { style: { '--card-color': mainCat.color }, onclick: () => VF.openFlash({ entry: e, category: currentCat }) }, initialsEl);
-    if (url) {
-      const img = h('img', { src: url, alt: '', loading: 'lazy', draggable: false });
-      img.addEventListener('load', () => initialsEl.remove());
-      img.addEventListener('error', () => img.remove());
-      cover.appendChild(img);
-    }
-    cover.appendChild(h('div.card-badges', (e.categories || []).filter((c) => c !== 'all').map((c) => {
+    // only a cover the user picked themselves; no generated art
+    const cover = e.image
+      ? h('div.card-cover', { onclick: () => VF.openFlash({ entry: e, category: currentCat }) }, h('img', { src: coverUrl(e), alt: '', draggable: false }))
+      : null;
+    const tags = h('div.card-tags', (e.categories || []).filter((c) => c !== 'all').map((c) => {
       const cat = catById(c);
       return h('span.badge', { style: { '--badge-color': cat.color } }, cat.id === 'mine' ? 'Mine' : cat.name);
-    })));
+    }));
 
     const foot = h('div.card-foot',
       h('button.btn.btn-accent', { onclick: () => VF.openFlash({ entry: e, category: currentCat }) }, icon('bolt'), 'Flash'));
@@ -65,14 +52,14 @@
     return h('article.card',
       cover,
       h('div.card-body',
-        h('div.card-title', e.name),
-        h('div.card-author', e.author ? `by ${e.author}` : e.repo || (e.source === 'file' ? 'Local file' : '')),
-        h('div.card-desc', { title: e.description || '' }, e.description || '')),
+        tags,
+        h('div.card-title', { title: e.description || '' }, e.name),
+        h('div.card-author', e.author || e.repo || (e.source === 'file' ? 'file' : ''))),
       foot);
   }
 
   async function removeProject(e) {
-    const ok = await confirmBox('Remove project?', `"${e.name}" will be removed from My Projects. Downloaded files and sketches are kept.`, { okLabel: 'Remove', danger: true });
+    const ok = await confirmBox('Remove?', e.name, { okLabel: 'Remove', danger: true });
     if (!ok) return;
     await call(window.vf.projects.remove(e.id));
     await reloadProjects();
@@ -87,9 +74,7 @@
     const cat = catById(currentCat);
     const q = state.search || '';
     const list = entriesFor(currentCat).filter((e) => matchesSearch(e, q));
-    const tags = Array.from(new Set(list.flatMap((e) => e.tags || []))).sort();
-    if (activeTag && !tags.includes(activeTag)) activeTag = null;
-    const shown = list.filter((e) => !activeTag || (e.tags || []).includes(activeTag));
+    const shown = list;
 
     clear(el);
     el.style.setProperty('--hero-color', cat.color);
@@ -99,18 +84,15 @@
           h('h1', cat.name),
           h('p', q ? `${shown.length} result${shown.length === 1 ? '' : 's'} for "${q}"` : cat.desc)),
         h('div.hero-actions',
-          h('button.btn', { onclick: () => openAddProject() }, icon('plus'), 'Add project'),
+          h('button.btn', { onclick: () => openAddProject() }, icon('plus'), 'Add'),
           h('button.btn.btn-icon', { title: 'Refresh catalog', onclick: () => VF.loadCatalog(true) }, icon('refresh')))),
       state.catalog.warning ? h('div.notice', icon('alert'), state.catalog.warning) : null,
-      tags.length > 1 ? h('div.chips',
-        h('span.chip' + (!activeTag ? '.active' : ''), { onclick: () => { activeTag = null; render(); } }, 'All'),
-        tags.map((t) => h('span.chip' + (activeTag === t ? '.active' : ''), { onclick: () => { activeTag = t; render(); } }, t))) : null,
       shown.length || currentCat === 'mine'
         ? h('div.grid',
           shown.map(card),
           currentCat === 'mine' || currentCat === 'all' && !q ? h('div.card.add', { onclick: () => openAddProject() },
-            h('div.plus', '+'), h('b', 'Add your own project'), h('span.dim', 'From a GitHub repo, a .bin on your PC, or a sketch you built.')) : null)
-        : h('div.empty', icon('search'), h('h3', 'Nothing here yet'), h('p', q ? 'Try a different search.' : 'Add a project to this category from My Projects.')));
+            h('div.plus', '+'), h('span', 'Add')) : null)
+        : h('div.empty', 'Empty'));
     el.appendChild(scroll);
   }
 
@@ -122,18 +104,18 @@
       : { source: 'github', categories: [], ...(prefill || {}) };
     let info = null;
     let analysis = null;
-    const m = modal({ title: existing ? 'Edit project' : 'Add a project', sub: 'It will show up in My Projects and the categories you pick.' });
+    const m = modal({ title: existing ? 'Edit' : 'Add project' });
 
-    const nameInput = h('input.input', { value: p.name || '', placeholder: 'My awesome firmware' });
-    const descInput = h('textarea.textarea', { rows: 2, placeholder: 'What does it do?' }, p.description || '');
-    const repoInput = h('input.input.grow', { value: p.repo || '', placeholder: 'owner/repo or https://github.com/owner/repo', spellcheck: false });
-    const filterInput = h('input.input', { value: p.assetFilter || '', placeholder: 'Optional: only show files containing... (e.g. CYD)', spellcheck: false });
+    const nameInput = h('input.input', { value: p.name || '', placeholder: 'Name' });
+    const descInput = h('textarea.textarea', { rows: 2, placeholder: '' }, p.description || '');
+    const repoInput = h('input.input.grow', { value: p.repo || '', placeholder: 'owner/repo', spellcheck: false });
+    const filterInput = h('input.input', { value: p.assetFilter || '', placeholder: 'optional', spellcheck: false });
     const preview = h('div');
 
     function tabs() {
       return h('div.tabs',
-        h('div.tab' + (p.source === 'github' ? '.active' : ''), { onclick: () => { p.source = 'github'; draw(); } }, icon('github'), ' GitHub repo'),
-        h('div.tab' + (p.source === 'file' ? '.active' : ''), { onclick: () => { p.source = 'file'; draw(); } }, icon('file'), ' File on this PC'));
+        h('div.tab' + (p.source === 'github' ? '.active' : ''), { onclick: () => { p.source = 'github'; draw(); } }, icon('github'), ' GitHub'),
+        h('div.tab' + (p.source === 'file' ? '.active' : ''), { onclick: () => { p.source = 'file'; draw(); } }, icon('file'), ' File'));
     }
 
     function catPicks() {
@@ -148,7 +130,7 @@
     }
 
     async function checkRepo() {
-      clear(preview).appendChild(h('div.row.muted', icon('spinner', 'spin'), 'Checking GitHub...'));
+      clear(preview).appendChild(h('div.row.muted', '...'));
       try {
         info = await call(window.vf.github.repoInfo(repoInput.value));
         const rels = await call(window.vf.github.releases(info.repo));
@@ -157,11 +139,10 @@
         if (!descInput.value) descInput.value = info.description;
         const files = rels.reduce((n, r) => n + r.assets.length, 0);
         clear(preview).appendChild(h('div.preview-card',
-          h('img', { src: `https://opengraph.githubassets.com/1/${info.repo}`, alt: '' }),
           h('div.grow',
             h('b', info.repo), h('div.dim', `★ ${info.stars} · ${info.license || 'no license listed'}`),
             h('div', { style: { color: rels.length ? 'var(--green)' : 'var(--orange)', marginTop: '4px' } },
-              rels.length ? `${rels.length} release${rels.length > 1 ? 's' : ''} with ${files} flashable files` : 'No releases with .bin/.hex files yet. Build it in the IDE instead.'))));
+              rels.length ? `${files} files` : 'No release files'))));
       } catch (err) {
         info = null;
         clear(preview).appendChild(h('div.notice.err', { style: { margin: 0 } }, icon('alert'), err.message));
@@ -184,28 +165,28 @@
 
     function draw() {
       const source = p.source === 'github'
-        ? h('div.field', h('span', 'GitHub repository'),
+        ? h('div.field', h('span', 'Repo'),
           h('div.row', repoInput, h('button.btn', { onclick: checkRepo }, icon('search'), 'Check')),
           preview,
-          h('label.field', { style: { marginTop: '6px' } }, h('span', 'File filter'), filterInput,
+          h('label.field', { style: { marginTop: '6px' } }, h('span', 'Filter'), filterInput,
             h('small', 'Handy when a release has files for many boards.')))
-        : h('div.field', h('span', 'Firmware file'),
+        : h('div.field', h('span', 'File'),
           p.path
             ? h('div.asset.selected', h('span.radio'), h('span.name', p.path), h('button.btn.btn-sm', { onclick: pickFile }, 'Change'))
-            : h('button.btn.btn-lg.btn-block', { onclick: pickFile }, icon('folder'), 'Choose a .bin or .hex'),
+            : h('button.btn.btn-lg.btn-block', { onclick: pickFile }, icon('folder'), 'Choose file'),
           analysis ? h('small', `${analysis.summary}${analysis.chip ? ' Built for ' + analysis.chip + '.' : ''}`) : null);
 
       m.setBody(
         existing ? null : tabs(),
         source,
         h('div.two', h('label.field', h('span', 'Name'), nameInput),
-          h('div.field', h('span', 'Cover image'), h('div.row',
-            h('button.btn.grow', { onclick: async () => { const img = await call(window.vf.app.pickImage()); if (img) { p.image = img; draw(); } } }, icon('image'), p.image ? 'Change image' : 'Choose image (optional)'),
+          h('div.field', h('span', 'Image'), h('div.row',
+            h('button.btn.grow', { onclick: async () => { const img = await call(window.vf.app.pickImage()); if (img) { p.image = img; draw(); } } }, icon('image'), p.image ? 'Change' : 'Choose'),
             p.image ? h('button.btn.btn-icon', { title: 'Remove image', onclick: () => { p.image = null; draw(); } }, icon('x')) : null))),
-        h('label.field', h('span', 'Description'), descInput),
+        h('label.field', h('span', 'Notes'), descInput),
         h('div.field', h('span', 'Categories'), catPicks()));
       m.setFoot(h('div.spacer'), h('button.btn', { onclick: () => m.close() }, 'Cancel'),
-        h('button.btn.btn-accent', { onclick: save }, icon('check'), existing ? 'Save' : 'Add project'));
+        h('button.btn.btn-accent', { onclick: save }, icon('check'), existing ? 'Save' : 'Add'));
     }
 
     async function save() {
@@ -238,7 +219,7 @@
         await call(window.vf.projects.save(out));
         m.close();
         await reloadProjects();
-        toast(existing ? 'Project saved' : 'Project added', `${name} is in My Projects.`, { type: 'ok', actions: existing ? null : [{ label: 'View', onClick: () => VF.go('store:mine') }] });
+        toast(existing ? 'Saved' : 'Added', null, { type: 'ok' });
       } catch (err) {
         errorToast(err, 'Could not save');
       }
@@ -254,7 +235,6 @@
   VF.views.store = {
     el,
     show(cat) {
-      if (cat !== currentCat) activeTag = null;
       currentCat = cat || 'all';
       render();
     },

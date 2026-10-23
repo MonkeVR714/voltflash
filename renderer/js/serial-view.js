@@ -17,12 +17,12 @@
   const connectBtn = h('button.btn.btn-accent', { onclick: () => (port ? disconnect() : connect()) }, icon('plug'), 'Connect');
   const baudSelect = h('select.select', { onchange: () => { VF.saveSettings({ serialBaud: Number(baudSelect.value) }); if (port) reconnect(); } });
   const endingSelect = h('select.select', { title: 'Line ending added when sending', onchange: () => { opts.ending = endingSelect.value; } },
-    h('option', { value: '' }, 'No line ending'), h('option', { value: '\n', selected: true }, 'Newline (LF)'),
-    h('option', { value: '\r\n' }, 'Both NL & CR'), h('option', { value: '\r' }, 'Carriage return'));
+    h('option', { value: '' }, 'None'), h('option', { value: '\n', selected: true }, 'LF'),
+    h('option', { value: '\r\n' }, 'CRLF'), h('option', { value: '\r' }, 'CR'));
   const portLabel = h('span.muted');
   const statusDot = h('span.port-dot');
   const out = h('div.log.serial-out');
-  const input = h('input.input', { placeholder: 'Type a message and press Enter', disabled: true, spellcheck: false });
+  const input = h('input.input', { placeholder: 'Send', disabled: true, spellcheck: false });
   const sendBtn = h('button.btn', { disabled: true, onclick: () => send() }, icon('send'), 'Send');
 
   el.append(
@@ -32,10 +32,10 @@
       h('div.spacer'),
       baudSelect,
       endingSelect,
-      h('label.check', h('input', { type: 'checkbox', onchange: (e) => { opts.timestamps = e.target.checked; } }), 'Timestamps'),
-      h('label.check', h('input', { type: 'checkbox', checked: true, onchange: (e) => { opts.autoscroll = e.target.checked; } }), 'Autoscroll'),
+      h('label.check', h('input', { type: 'checkbox', onchange: (e) => { opts.timestamps = e.target.checked; } }), 'Time'),
+      h('label.check', h('input', { type: 'checkbox', checked: true, onchange: (e) => { opts.autoscroll = e.target.checked; } }), 'Scroll'),
       h('button.btn.btn-icon', { title: 'Reset the board (toggles EN via RTS)', onclick: () => resetBoard() }, icon('reset')),
-      h('button.btn.btn-icon', { title: 'Copy output', onclick: () => navigator.clipboard.writeText(out.innerText).then(() => toast('Copied', 'Serial output copied to the clipboard.', { type: 'ok' })) }, icon('file')),
+      h('button.btn.btn-icon', { title: 'Copy output', onclick: () => navigator.clipboard.writeText(out.innerText).then(() => toast('Copied', null, { type: 'ok' })) }, icon('file')),
       h('button.btn.btn-icon', { title: 'Clear', onclick: () => { clear(out); partial = null; } }, icon('trash'))),
     out,
     h('div.serial-send', input, sendBtn));
@@ -49,8 +49,8 @@
   function renderControls() {
     clear(baudSelect);
     const cur = state.settings.serialBaud || 115200;
-    for (const b of SERIAL_BAUDS) baudSelect.appendChild(h('option', { value: b, selected: b === cur }, `${b.toLocaleString()} baud`));
-    portLabel.textContent = port ? `Connected to ${state.serialPort}` : state.port ? `${state.port} (not connected)` : 'No port selected';
+    for (const b of SERIAL_BAUDS) baudSelect.appendChild(h('option', { value: b, selected: b === cur }, b.toLocaleString()));
+    portLabel.textContent = port ? state.serialPort : state.port || '-';
     statusDot.classList.toggle('on', !!port);
     VF.clear(connectBtn).append(icon(port ? 'x' : 'plug'), port ? 'Disconnect' : 'Connect');
     connectBtn.className = 'btn ' + (port ? 'btn-danger' : 'btn-accent');
@@ -90,7 +90,7 @@
   }
 
   async function connect() {
-    if (!state.port) return toast('No port selected', 'Pick a COM port at the top of the window.', { type: 'err' });
+    if (!state.port) return toast('No port', null, { type: 'err' });
     if (!navigator.serial) return toast('Serial not available', 'Web Serial is not supported in this build.', { type: 'err' });
     try {
       window.vf.ports.want(state.port);
@@ -170,7 +170,7 @@
   }
 
   async function resetBoard() {
-    if (!port) return toast('Not connected', 'Connect first, then reset.', { type: 'err' });
+    if (!port) return toast('Not connected', null, { type: 'err' });
     try {
       await port.setSignals({ dataTerminalReady: false, requestToSend: true });
       await new Promise((r) => setTimeout(r, 120));

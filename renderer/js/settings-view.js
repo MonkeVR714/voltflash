@@ -29,7 +29,7 @@
           render();
           try {
             await call(window.vf.tools.install(name));
-            toast(`${label} ready`, 'Downloaded the latest version from GitHub.', { type: 'ok' });
+            toast(`${label} ready`, null, { type: 'ok' });
           } catch (e) {
             errorToast(e, `${label} install failed`);
           }
@@ -48,7 +48,7 @@
       h('button.btn.btn-sm', {
         disabled: !!busy,
         onclick: async () => {
-          installing[c.id] = 'Installing... watch progress in the Arduino IDE output panel.';
+          installing[c.id] = 'Installing...';
           render();
           try {
             cores = await call(window.vf.arduino.installCore(c.id));
@@ -72,83 +72,83 @@
   function updatesPanel(st) {
     const u = state.update || { status: 'idle', mode: 'dev' };
     const statusText = {
-      idle: 'Not checked yet.',
-      checking: 'Checking GitHub for updates...',
-      none: `You're up to date${u.checkedAt ? ` (checked ${VF.timeAgo(u.checkedAt)})` : ''}.`,
-      available: `Version ${u.version} is available.`,
-      downloading: `Downloading version ${u.version}... ${u.pct || 0}%`,
-      ready: `Version ${u.version} is downloaded and ready.`,
-      error: `Update check failed: ${u.error}`,
+      idle: '',
+      checking: 'Checking...',
+      none: 'Up to date',
+      available: `${u.version} available`,
+      downloading: `${u.pct || 0}%`,
+      ready: `${u.version} ready`,
+      error: u.error,
     }[u.status] || '';
     return panel('refresh', 'Updates', MODE_TEXT[u.mode],
       h('div.tool-row',
         icon(u.status === 'ready' ? 'check' : 'info'),
         h('div.grow', h('div.name', `Version ${u.current || ''}`), h('div.dim', { style: { fontSize: '12.5px' } }, u.note || statusText)),
         u.status === 'ready'
-          ? h('button.btn.btn-sm.btn-accent', { onclick: () => VF.installUpdate() }, icon('reset'), 'Restart and update')
+          ? h('button.btn.btn-sm.btn-accent', { onclick: () => VF.installUpdate() }, icon('reset'), 'Restart')
           : u.status === 'available'
             ? h('button.btn.btn-sm.btn-accent', { onclick: () => window.vf.app.openExternal(u.url) }, icon('download'), 'Download')
             : h('button.btn.btn-sm', {
               disabled: u.status === 'checking' || u.status === 'downloading',
               onclick: () => call(window.vf.update.check()).catch((e) => errorToast(e, 'Update check failed')),
-            }, icon('refresh'), 'Check now')),
+            }, icon('refresh'), 'Check')),
       h('label.check', h('input', { type: 'checkbox', checked: st.autoUpdate !== false, onchange: (e) => VF.saveSettings({ autoUpdate: e.target.checked }) }),
-        'Check for updates automatically'));
+        'Auto check'));
   }
 
   function render() {
     const st = state.settings;
-    const tokenInput = h('input.input.mono', { type: 'password', value: st.githubToken || '', placeholder: 'ghp_... (optional)', spellcheck: false });
+    const tokenInput = h('input.input.mono', { type: 'password', value: st.githubToken || '', placeholder: 'optional', spellcheck: false });
     const catalogInput = h('input.input.mono', { value: st.catalogUrl || '', placeholder: 'https://raw.githubusercontent.com/you/catalog/main/catalog.json', spellcheck: false });
     const homeInput = h('input.input.mono', { value: st.browserHome || '', spellcheck: false });
 
     clear(body).append(
-      h('div', h('h1', { style: { margin: '0 0 4px', fontSize: '24px' } }, 'Settings'), h('p.muted', { style: { margin: 0 } }, 'Everything is stored on this PC.')),
+      h('div', h('h1', { style: { margin: 0 } }, 'Settings')),
 
       panel('bolt', 'Flashing', 'Defaults for the flash dialog.',
         h('div.two',
-          h('label.field', h('span', 'Default flash speed'),
+          h('label.field', h('span', 'Baud'),
             h('select.select', { onchange: (e) => VF.saveSettings({ baud: Number(e.target.value) }) },
               BAUDS.map((b) => h('option', { value: b, selected: b === st.baud }, `${b.toLocaleString()} baud`))),
             h('small', 'Use 115200 or 460800 if flashing fails with long or cheap cables.')),
-          h('div.field', h('span', 'Before flashing'),
+          h('div.field', h('span', 'Before flash'),
             h('label.check', h('input', { type: 'checkbox', checked: st.backupBeforeFlash !== false, onchange: (e) => VF.saveSettings({ backupBeforeFlash: e.target.checked }) }),
-              'Back up the old firmware (see Backups)'),
+              'Back up first'),
             h('label.check', h('input', { type: 'checkbox', checked: !!st.eraseBeforeFlash, onchange: (e) => VF.saveSettings({ eraseBeforeFlash: e.target.checked }) }),
-              'Erase the whole flash')))),
+              'Erase first')))),
 
       panel('github', 'GitHub', 'Without a token GitHub allows 60 requests an hour. A token with no scopes raises that to 5,000.',
-        h('label.field', h('span', 'Personal access token'),
-          h('div.row', tokenInput, h('button.btn', { onclick: async () => { await VF.saveSettings({ githubToken: tokenInput.value.trim() }); toast('Saved', 'GitHub token updated.', { type: 'ok' }); } }, 'Save')),
+        h('label.field', h('span', 'Token'),
+          h('div.row', tokenInput, h('button.btn', { onclick: async () => { await VF.saveSettings({ githubToken: tokenInput.value.trim() }); toast('Saved', null, { type: 'ok' }); } }, 'Save')),
           h('small', 'Create one at github.com/settings/tokens (no permissions needed). Stored in plain text in your VoltFlash settings file.'))),
 
-      panel('grid', 'Firmware catalog', 'Leave empty to use the built-in catalog. Point it at your own catalog.json to share a store with friends.',
-        h('label.field', h('span', 'Catalog URL'),
+      panel('grid', 'Catalog', 'Leave empty to use the built-in catalog. Point it at your own catalog.json to share a store with friends.',
+        h('label.field', h('span', 'URL'),
           h('div.row', catalogInput,
-            h('button.btn', { onclick: async () => { await VF.saveSettings({ catalogUrl: catalogInput.value.trim() }); await VF.loadCatalog(true); toast('Catalog updated', state.catalog.warning || `Loaded ${state.catalog.firmware.length} firmware entries.`, { type: state.catalog.warning ? 'err' : 'ok' }); } }, 'Save & reload')))),
+            h('button.btn', { onclick: async () => { await VF.saveSettings({ catalogUrl: catalogInput.value.trim() }); await VF.loadCatalog(true); toast('Catalog updated', state.catalog.warning || `Loaded ${state.catalog.firmware.length} firmware entries.`, { type: state.catalog.warning ? 'err' : 'ok' }); } }, 'Save')))),
 
       panel('globe', 'Browser', null,
-        h('label.field', h('span', 'Home page'),
-          h('div.row', homeInput, h('button.btn', { onclick: async () => { await VF.saveSettings({ browserHome: homeInput.value.trim() }); toast('Saved', 'Browser home page updated.', { type: 'ok' }); } }, 'Save')))),
+        h('label.field', h('span', 'Home'),
+          h('div.row', homeInput, h('button.btn', { onclick: async () => { await VF.saveSettings({ browserHome: homeInput.value.trim() }); toast('Saved', null, { type: 'ok' }); } }, 'Save')))),
 
       panel('package', 'Tools', 'VoltFlash downloads these official tools from GitHub when they are first needed.',
-        toolRow('esptool', 'esptool', 'Espressif\'s flasher for every ESP32 chip.'),
-        toolRow('arduino-cli', 'arduino-cli', 'Compiles sketches, uploads to Arduino boards and manages libraries.')),
+        toolRow('esptool', 'esptool', ''),
+        toolRow('arduino-cli', 'arduino-cli', '')),
 
-      panel('chip', 'Board packages', 'Needed by the Arduino IDE to build for each family of boards.',
-        cores ? cores.map(coreRow) : h('div.dim', 'Install arduino-cli to manage board packages.')),
+      panel('chip', 'Boards', 'Needed by the Arduino IDE to build for each family of boards.',
+        cores ? cores.map(coreRow) : h('div.dim', '-')),
 
       panel('folder', 'Storage', null,
         h('div.row.wrap',
-          h('button.btn', { onclick: () => info && window.vf.app.openPath(info.downloads) }, icon('download'), 'Open downloads folder'),
-          h('button.btn', { onclick: () => info && window.vf.app.openPath(info.userData) }, icon('folder'), 'Open data folder')),
+          h('button.btn', { onclick: () => info && window.vf.app.openPath(info.downloads) }, icon('download'), 'Downloads'),
+          h('button.btn', { onclick: () => info && window.vf.app.openPath(info.userData) }, icon('folder'), 'Data')),
         info ? h('small.dim.mono', info.userData) : null),
 
       updatesPanel(st),
 
       panel('info', 'About', null,
         h('div', `VoltFlash ${info ? info.version : ''}`),
-        h('div.dim', 'Uses esptool by Espressif and arduino-cli by Arduino. Firmware in the store belongs to its authors; check each project\'s license.')));
+        null));
   }
 
   async function refresh() {

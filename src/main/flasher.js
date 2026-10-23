@@ -110,7 +110,7 @@ function analyze(file) {
         flashSize: hdr.flashSize,
         app,
         summary: 'App-only image. Flashes at 0x10000 and needs a matching bootloader already on the board.',
-        warning: 'App-only images will not boot on a blank or differently partitioned board. Pick a "merged" or "factory" file when the release has one.',
+        warning: 'App-only. Needs a bootloader already on the board.',
       };
     }
     return {
@@ -130,7 +130,7 @@ function analyze(file) {
     target: 'esp',
     offset: 0,
     summary: 'Unrecognised binary (filesystem image or another chip). Set the offset the project documents.',
-    warning: 'VoltFlash could not identify this file. Make sure the offset matches the project instructions.',
+    warning: 'Unknown file. Check the offset.',
   };
 }
 

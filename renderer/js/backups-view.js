@@ -42,12 +42,11 @@
           h('h1', 'Backups'),
           h('p', 'Every time you flash, VoltFlash first saves the firmware that was on the board. Restore it here any time to get the original back.')),
         h('div.hero-actions',
-          h('button.btn', { onclick: async () => window.vf.app.openPath(await call(window.vf.backups.folder())) }, icon('folder'), 'Open folder'),
-          h('button.btn.btn-accent', { onclick: backupNow }, icon('download'), 'Back up a board now'))));
+          h('button.btn', { onclick: async () => window.vf.app.openPath(await call(window.vf.backups.folder())) }, icon('folder'), 'Folder'),
+          h('button.btn.btn-accent', { onclick: backupNow }, icon('download'), 'Back up now'))));
 
     if (!backups.length) {
-      body.appendChild(h('div.empty', icon('save'), h('h3', 'No backups yet'),
-        h('p', 'Plug in a board and press "Back up a board now", or just flash something. A backup is made automatically first.')));
+      body.appendChild(h('div.empty', 'No backups'));
       return;
     }
 
@@ -59,10 +58,10 @@
         h('div.backup-group-head',
           h('span.badge', { style: { '--badge-color': familyColor(first.family) } }, first.family || 'ESP'),
           h('b', first.chip || 'Unknown chip'),
-          h('span.dim.mono', mac === 'unknown' ? '' : `MAC ${mac}`),
-          isThisBoard ? h('span.pill.ok', `plugged in on ${state.port}`) : null,
+          h('span.dim.mono', mac === 'unknown' ? '' : mac),
+          isThisBoard ? h('span.pill.ok', state.port) : null,
           h('span.spacer'),
-          h('span.dim', `${items.length} backup${items.length > 1 ? 's' : ''}`)),
+          h('span.dim', String(items.length))),
         items.map(row)));
     }
     body.appendChild(list);
@@ -80,7 +79,7 @@
   function restore(b) {
     const det = state.detected[state.port];
     if (det && det.mac && b.mac && det.mac !== b.mac) {
-      toast('Different board', `This backup came from ${b.mac}, but the board on ${state.port} is ${det.mac}. Restoring will still work if it is the same model.`, { type: 'info', timeout: 9000 });
+      toast('Different board', null, { type: 'info' });
     }
     VF.openFlash({
       entry: { name: `Restore: ${b.label || b.name}`, source: 'file', path: b.file, offset: 0 },
@@ -88,30 +87,30 @@
   }
 
   async function rename(b) {
-    const label = await promptBox('Rename backup', 'Name', { value: b.label || '', placeholder: 'e.g. Original CYD factory firmware', okLabel: 'Save' });
+    const label = await promptBox('Rename', 'Name', { value: b.label || '', okLabel: 'Save' });
     if (label === null) return;
     backups = await call(window.vf.backups.update(b.file, { label }));
     render();
   }
 
   async function remove(b) {
-    const ok = await confirmBox('Delete backup?', `"${b.label || b.name}" will be moved to the Recycle Bin.`, { okLabel: 'Move to Recycle Bin', danger: true });
+    const ok = await confirmBox('Delete?', b.label || b.name, { okLabel: 'Delete', danger: true });
     if (!ok) return;
     backups = await call(window.vf.backups.trash(b.file));
     render();
   }
 
   async function backupNow() {
-    if (!state.port) return toast('No port selected', 'Plug in your board and pick its COM port at the top.', { type: 'err' });
+    if (!state.port) return toast('No port', null, { type: 'err' });
     await VF.releasePort();
     const stageEl = h('div.stage', 'Connecting');
     const pctEl = h('div.pct', '');
     const bar = h('div');
     const prog = h('div.progress.indeterminate', bar);
     const log = h('div.log', { style: { height: '200px' } });
-    const m = modal({ title: 'Backing up board', sub: `${state.port} · reading the whole flash chip`, lock: true });
+    const m = modal({ title: 'Backup', lock: true });
     m.setBody(h('div', h('div.flash-status', stageEl, pctEl), prog), log);
-    m.setFoot(h('div.dim', 'A 4 MB board takes about a minute.'), h('div.spacer'),
+    m.setFoot(h('div.spacer'),
       h('button.btn.btn-danger', { onclick: () => window.vf.flash.cancel() }, icon('stop'), 'Cancel'));
     const off = window.vf.flash.onLog((p) => {
       if (p.stage) stageEl.textContent = p.stage;
@@ -125,7 +124,7 @@
     });
     try {
       const meta = await call(window.vf.backups.create({ port: state.port, baud: state.settings.baud || 921600, label: 'Manual backup' }));
-      toast('Backup saved', `${meta.name} (${fmtBytes(meta.size)})`, { type: 'ok' });
+      toast('Saved', null, { type: 'ok' });
       m.close();
     } catch (e) {
       prog.classList.remove('indeterminate');
