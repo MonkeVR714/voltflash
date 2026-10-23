@@ -1,6 +1,11 @@
-# Builds the Windows installer and portable exe.
-# Push a tag like v1.0.0 to publish them on a GitHub Release,
-# or run it by hand from the Actions tab to just get the files.
+# Builds every Windows download and attaches them to a GitHub Release.
+# Push a tag like v1.2.0 to publish, or run it by hand from the Actions tab.
+#
+#   VoltFlash-Setup-x.y.z.exe        one-click installer, auto-updates (electron-updater)
+#   VoltFlash-Portable-x.y.z.exe     single file, no install
+#   VoltFlash-win-x64-x.y.z.zip      Smart App Control friendly build, used by install.ps1
+#   VoltFlash-app-x.y.z.zip          app files only, used to update the build above
+#   latest.yml + .blockmap           metadata electron-updater reads
 name: Build VoltFlash
 
 on:
@@ -24,17 +29,36 @@ jobs:
 
       - run: npm ci
 
-      - name: Build installer and portable exe
+      - name: Installer and portable exe
         run: npx electron-builder --win nsis portable --publish never
+
+      - name: Smart App Control build (unmodified Electron exe, no asar)
+        run: npm run dist:sac
+
+      - name: Zip the Smart App Control build and the app-only update
+        shell: pwsh
+        run: |
+          $v = (Get-Content package.json | ConvertFrom-Json).version
+          Compress-Archive -Path dist-sac/win-unpacked/* -DestinationPath "dist/VoltFlash-win-x64-$v.zip"
+          Compress-Archive -Path dist-sac/win-unpacked/resources/app/* -DestinationPath "dist/VoltFlash-app-$v.zip"
+          Get-ChildItem dist -File | Format-Table Name, Length
 
       - uses: actions/upload-artifact@v4
         with:
           name: VoltFlash-windows
-          path: dist/*.exe
+          path: |
+            dist/*.exe
+            dist/*.zip
+            dist/latest.yml
+            dist/*.blockmap
 
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.exe
+          files: |
+            dist/*.exe
+            dist/*.zip
+            dist/latest.yml
+            dist/*.blockmap
           generate_release_notes: true

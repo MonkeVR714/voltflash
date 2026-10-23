@@ -9,6 +9,7 @@ const DEFAULT_SETTINGS = {
   catalogUrl: '',
   eraseBeforeFlash: false,
   backupBeforeFlash: true,
+  autoUpdate: true,
   ideBoard: 'esp32:esp32:esp32',
   serialBaud: 115200,
   browserHome: 'https://github.com/topics/esp32',

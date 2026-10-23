@@ -84,9 +84,9 @@
       const repo = `${m[1]}/${m[2].replace(/\.git$/, '')}`;
       const known = [...(state.catalog.firmware || []), ...state.projects].find((e) => (e.repo || '').toLowerCase() === repo.toLowerCase());
       VF.clear(repoText).append(h('b', repo), known ? h('span.dim', `  · already in ${state.projects.includes(known) ? 'My Projects' : 'the store'}`) : '');
-      VF.clear(repoBanner).append(icon('github'), repoText,
+      VF.append(VF.clear(repoBanner), [icon('github'), repoText,
         h('button.btn.btn-sm.btn-accent', { onclick: () => VF.openFlash({ entry: known || { name: m[2], repo } }) }, icon('bolt'), 'Flash from releases'),
-        known ? null : h('button.btn.btn-sm', { onclick: () => VF.openAddProject(null, { repo, source: 'github' }) }, icon('plus'), 'Add to My Projects'));
+        known ? null : h('button.btn.btn-sm', { onclick: () => VF.openAddProject(null, { repo, source: 'github' }) }, icon('plus'), 'Add to My Projects')]);
       repoBanner.classList.add('show');
     } else {
       repoBanner.classList.remove('show');

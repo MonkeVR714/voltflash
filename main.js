@@ -9,6 +9,7 @@ const github = require('./src/main/github');
 const flasher = require('./src/main/flasher');
 const arduino = require('./src/main/arduino');
 const sketches = require('./src/main/sketches');
+const updater = require('./src/main/updater');
 
 let win = null;
 let wantedSerialPort = null;
@@ -189,6 +190,11 @@ function registerIpc() {
   });
   handle('backups:folder', () => store.paths.backups);
 
+  // updates
+  handle('update:state', () => updater.getState());
+  handle('update:check', () => updater.check(true));
+  handle('update:install', () => updater.install());
+
   // my projects (firmware entries the user adds)
   handle('projects:list', () => store.getProjects());
   handle('projects:save', (p) => store.saveProject(p));
@@ -231,6 +237,7 @@ app.whenReady().then(() => {
   store.init(app.getPath('userData'));
   registerIpc();
   createWindow();
+  if (!process.env.VF_SMOKE) updater.init((s) => send('update:state', s));
 });
 
 app.on('window-all-closed', () => {

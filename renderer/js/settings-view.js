@@ -62,6 +62,40 @@
       }, icon('download'), c.installed ? 'Update' : 'Install'));
   }
 
+  const MODE_TEXT = {
+    installer: 'Installed with the setup program. Updates download in the background and install when you restart.',
+    folder: 'Installed with the one-line installer. Updates replace the app files only, so Windows Smart App Control keeps trusting it.',
+    portable: 'Portable copy: VoltFlash tells you when a new version is out, but you download it yourself.',
+    dev: 'Running from source code: updates are off.',
+  };
+
+  function updatesPanel(st) {
+    const u = state.update || { status: 'idle', mode: 'dev' };
+    const statusText = {
+      idle: 'Not checked yet.',
+      checking: 'Checking GitHub for updates...',
+      none: `You're up to date${u.checkedAt ? ` (checked ${VF.timeAgo(u.checkedAt)})` : ''}.`,
+      available: `Version ${u.version} is available.`,
+      downloading: `Downloading version ${u.version}... ${u.pct || 0}%`,
+      ready: `Version ${u.version} is downloaded and ready.`,
+      error: `Update check failed: ${u.error}`,
+    }[u.status] || '';
+    return panel('refresh', 'Updates', MODE_TEXT[u.mode],
+      h('div.tool-row',
+        icon(u.status === 'ready' ? 'check' : 'info'),
+        h('div.grow', h('div.name', `Version ${u.current || ''}`), h('div.dim', { style: { fontSize: '12.5px' } }, u.note || statusText)),
+        u.status === 'ready'
+          ? h('button.btn.btn-sm.btn-accent', { onclick: () => VF.installUpdate() }, icon('reset'), 'Restart and update')
+          : u.status === 'available'
+            ? h('button.btn.btn-sm.btn-accent', { onclick: () => window.vf.app.openExternal(u.url) }, icon('download'), 'Download')
+            : h('button.btn.btn-sm', {
+              disabled: u.status === 'checking' || u.status === 'downloading',
+              onclick: () => call(window.vf.update.check()).catch((e) => errorToast(e, 'Update check failed')),
+            }, icon('refresh'), 'Check now')),
+      h('label.check', h('input', { type: 'checkbox', checked: st.autoUpdate !== false, onchange: (e) => VF.saveSettings({ autoUpdate: e.target.checked }) }),
+        'Check for updates automatically'));
+  }
+
   function render() {
     const st = state.settings;
     const tokenInput = h('input.input.mono', { type: 'password', value: st.githubToken || '', placeholder: 'ghp_... (optional)', spellcheck: false });
@@ -110,6 +144,8 @@
           h('button.btn', { onclick: () => info && window.vf.app.openPath(info.userData) }, icon('folder'), 'Open data folder')),
         info ? h('small.dim.mono', info.userData) : null),
 
+      updatesPanel(st),
+
       panel('info', 'About', null,
         h('div', `VoltFlash ${info ? info.version : ''}`),
         h('div.dim', 'Uses esptool by Espressif and arduino-cli by Arduino. Firmware in the store belongs to its authors; check each project\'s license.')));
@@ -131,6 +167,7 @@
       if (state.view === 'settings') render();
     }
   });
+  bus.on('update', () => { if (state.view === 'settings' && !document.activeElement.matches('input')) render(); });
   bus.on('settings', () => { if (state.view === 'settings' && !document.activeElement.matches('input')) render(); });
 
   VF.views.settings = {

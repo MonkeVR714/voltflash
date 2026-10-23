@@ -71,4 +71,10 @@ contextBridge.exposeInMainWorld('vf', {
     dir: invoke('sketch:dir'),
   },
   browser: { onDownload: on('browser:download') },
+  update: {
+    state: invoke('update:state'),
+    check: invoke('update:check'),
+    install: invoke('update:install'),
+    onState: on('update:state'),
+  },
 });

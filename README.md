@@ -2,6 +2,27 @@
 
 A Windows app in the spirit of M5Burner: browse firmware by board, download it from GitHub and flash it over USB. It also has a built-in web browser, a mini Arduino IDE and a serial monitor.
 
+## Install
+
+**Easiest (works on every Windows 10/11 PC, including ones with Smart App Control):** open PowerShell and paste:
+
+```powershell
+irm https://raw.githubusercontent.com/MonkeVR714/voltflash/main/install.ps1 | iex
+```
+
+This installs VoltFlash for your user account (no admin needed). It adds Start menu and desktop shortcuts and puts VoltFlash in **Settings > Apps** so you can uninstall it.
+
+**Or download from [Releases](https://github.com/MonkeVR714/voltflash/releases/latest):**
+
+| File | What it is |
+|---|---|
+| `VoltFlash-Setup-x.y.z.exe` | One-click installer. Windows may block it if Smart App Control is on, so use the PowerShell line above in that case. |
+| `VoltFlash-Portable-x.y.z.exe` | Single file, no install. Doesn't update itself. |
+
+### Updates
+
+VoltFlash checks GitHub for a new release when it starts and every 6 hours after that. New versions download in the background, and a **Restart to update** button appears in the status bar. Copies installed with the PowerShell line only replace the app's own files, so Windows keeps trusting the program. You can turn auto-check off in **Settings > Updates**.
+
 ## Features
 
 - **Firmware Store**: categories for ESP32, ESP32-S3, CYD (Cheap Yellow Display), M5Stack and Arduino. Each card lists a project's GitHub releases and suggests the right file for the category and the detected chip.

@@ -1,17 +1,19 @@
 {
   "name": "voltflash",
   "productName": "VoltFlash",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Firmware store, flasher and mini Arduino IDE for ESP32, ESP32-S3, CYD, M5Stack and Arduino boards",
   "main": "main.js",
   "author": "VoltFlash",
   "license": "MIT",
+  "repository": "github:MonkeVR714/voltflash",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --win nsis portable",
-    "dist:portable": "electron-builder --win portable"
+    "dist": "electron-builder --win nsis portable --publish never",
+    "dist:sac": "electron-builder --win dir --publish never --config.win.signAndEditExecutable=false --config.asar=false --config.directories.output=dist-sac"
   },
   "dependencies": {
+    "electron-updater": "^6.3.9",
     "monaco-editor": "0.52.2"
   },
   "devDependencies": {
@@ -28,21 +30,44 @@
       "renderer/**/*",
       "catalog.json",
       "templates/**/*",
+      "build/icon.png",
+      "build/icon.ico",
       "node_modules/monaco-editor/min/**/*",
       "!node_modules/monaco-editor/esm/**",
       "!node_modules/monaco-editor/dev/**",
       "!node_modules/monaco-editor/min-maps/**"
     ],
     "extraResources": [
-      { "from": "resources/bin", "to": "bin", "filter": ["**/*"] }
+      {
+        "from": "resources/bin",
+        "to": "bin",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "MonkeVR714",
+        "repo": "voltflash"
+      }
     ],
     "win": {
-      "target": ["nsis", "portable"],
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "icon": "build/icon.png"
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
+      "oneClick": true,
+      "perMachine": false,
+      "runAfterFinish": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "VoltFlash",
+      "deleteAppDataOnUninstall": false,
       "artifactName": "VoltFlash-Setup-${version}.exe"
     },
     "portable": {
