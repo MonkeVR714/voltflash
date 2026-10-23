@@ -233,7 +233,22 @@ app.on('web-contents-created', (_e, contents) => {
   });
 });
 
+// One VoltFlash at a time: opening it again brings the existing window forward
+// instead of starting a second copy that fights over the data folder.
+const isPrimary = !!process.env.VF_SMOKE || app.requestSingleInstanceLock();
+if (!isPrimary) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (!win || win.isDestroyed()) return;
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+  });
+}
+
 app.whenReady().then(() => {
+  if (!isPrimary) return;
   store.init(app.getPath('userData'));
   registerIpc();
   createWindow();
